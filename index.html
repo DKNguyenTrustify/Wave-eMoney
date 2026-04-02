@@ -24,6 +24,8 @@ nav{background:var(--navy);padding:0 32px;display:flex;align-items:center;justif
 .nav-btn{background:none;border:none;color:rgba(255,255,255,.7);padding:8px 16px;border-radius:8px;cursor:pointer;font-size:14px;font-family:inherit;transition:.2s;}
 .nav-btn:hover,.nav-btn.active{background:rgba(255,255,255,.12);color:#fff;}
 .nav-tag{background:var(--accent);color:var(--navy);border-radius:20px;padding:2px 8px;font-size:11px;font-weight:700;cursor:pointer;}
+.n8n-tag{background:#FF6D5A;color:#fff;animation:n8nPulse 2s infinite;}
+@keyframes n8nPulse{0%,100%{opacity:1;}50%{opacity:.6;}}
 .nav-right{display:flex;align-items:center;gap:12px;}
 .nav-right select{padding:6px 12px;border-radius:8px;font-size:13px;font-family:inherit;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:#fff;cursor:pointer;outline:none;}
 .nav-right select option{color:var(--text);background:#fff;}
@@ -205,6 +207,7 @@ textarea{resize:vertical;min-height:120px;}
       <option value="Finance">Finance</option>
       <option value="E-Money">E-Money</option>
     </select>
+    <span class="nav-tag n8n-tag" title="n8n workflow automation connected">n8n</span>
     <span class="nav-tag" onclick="document.getElementById('demo-modal').classList.add('open')">DEMO</span>
   </div>
 </nav>
@@ -625,8 +628,9 @@ function renderDashboard(){
       let trackB = '<span style="color:#856404;font-weight:600">\u23F3 Pending</span>';
       if(t.finance_status==='APPROVED') trackB = '<span style="color:#16a34a;font-weight:600">\u2705 Approved</span>';
       else if(t.finance_status==='REJECTED') trackB = '<span style="color:#dc2626;font-weight:600">\u274C Rejected</span>';
+      const n8nBadge = t.n8n_source ? ' <span style="background:#FF6D5A;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:700">n8n</span>' : '';
       html += `<tr>
-        <td><strong>${t.id}</strong></td><td>${t.company}</td><td>${typeBadgeHtml(t.type)}</td>
+        <td><strong>${t.id}</strong>${n8nBadge}</td><td>${t.company}</td><td>${typeBadgeHtml(t.type)}</td>
         <td style="font-weight:700">${fmt(t.amount_requested)} MMK</td>
         <td>${trackA}</td><td>${trackB}</td>
         <td>${statusBadgeHtml(t.status)}</td><td>${riskBadgeHtml(t.risk_level)}</td>
@@ -660,6 +664,37 @@ function renderEmails(){
   }
 
   let html = '<div class="section-title">\uD83D\uDCE7 Incoming Emails</div><div class="section-sub">Parse client emails to create disbursement tickets.</div>';
+
+  // n8n automated intake section
+  const n8nTickets = allTickets().filter(t => t.n8n_source);
+  if(n8nTickets.length > 0){
+    html += `<div class="card" style="border-left:4px solid #FF6D5A"><div class="card-body">
+      <strong>\uD83E\uDD16 Automated Intake (n8n)</strong>
+      <span style="color:var(--muted);font-size:13px;margin-left:8px">${n8nTickets.length} ticket(s) auto-created from email</span>
+      <div style="margin-top:8px">`;
+    n8nTickets.forEach(t => {
+      html += `<div style="font-size:13px;padding:4px 0">${t.id} \u00B7 ${t.company} \u00B7 ${fmt(t.amount_requested)} MMK \u00B7 ${statusBadgeHtml(t.status)}</div>`;
+    });
+    html += '</div></div></div>';
+  }
+
+  // n8n webhook configuration info
+  html += `<div class="expander-toggle" onclick="this.nextElementSibling.classList.toggle('open')">\u25B6 n8n Webhook Configuration</div>
+  <div class="expander-body"><div style="font-size:13px;color:var(--muted)">
+    <p><strong>Dashboard URL:</strong> <code>https://wave-emi-dashboard.vercel.app/?n8n_ticket={BASE64_JSON}</code></p>
+    <p><strong>JSON Schema:</strong></p>
+    <pre style="background:var(--bg);padding:12px;border-radius:8px;font-size:12px;overflow-x:auto;white-space:pre-wrap">{
+  "company": "Company Name",
+  "type": "SalaryToMA | SalaryToOTC",
+  "amount_requested": 4800000,
+  "amount_on_bank_slip": 4800000,
+  "currency": "MMK",
+  "approvals": [{"name":"U Kyaw Zin", "role":"Sales HOD", "status":"Approved"}],
+  "required_approvals": ["Sales HOD", "Finance Manager"],
+  "body_preview": "First 200 chars of email body..."
+}</pre>
+    <p><strong>n8n Instance:</strong> tts-test.app.n8n.cloud</p>
+  </div></div>`;
 
   MOCK_EMAILS.forEach(email => {
     const eid = email.id;
@@ -1101,6 +1136,60 @@ function handleMarkSent(tid){
   renderEmoney();
 }
 
+// ─── N8N WEBHOOK INTAKE ──────────────────────────────────────────────────────
+
+function checkN8nWebhook(){
+  const params = new URLSearchParams(window.location.search);
+  const encoded = params.get('n8n_ticket');
+  if(!encoded) return;
+  try {
+    const data = JSON.parse(atob(encoded));
+    createTicketFromN8n(data);
+    // Clean URL without reload
+    window.history.replaceState({}, '', window.location.pathname);
+  } catch(e){ console.error('Invalid n8n ticket data:', e); }
+}
+
+function createTicketFromN8n(data){
+  const tid = generateTicketId();
+
+  // Authority matrix check
+  const requiredApprovals = data.required_approvals || ['Sales HOD','Finance Manager'];
+  const approvals = data.approvals || [];
+  const matrixComplete = requiredApprovals.every(req =>
+    approvals.some(a => a.role.toLowerCase().includes(req.toLowerCase()))
+  );
+  const mismatch = (data.amount_requested||0) !== (data.amount_on_bank_slip||data.amount_requested||0);
+
+  let scenario = 'NORMAL';
+  if(mismatch) scenario = 'AMOUNT_MISMATCH';
+  else if(!matrixComplete) scenario = 'MISSING_APPROVAL';
+
+  state.tickets[tid] = {
+    id:tid, source_email_id:'N8N-'+Date.now(),
+    company:data.company||'Unknown Company', type:data.type||'SalaryToMA',
+    currency:data.currency||'MMK', scenario:scenario, created_at:nowTs(),
+    amount_requested:data.amount_requested||0,
+    amount_on_bank_slip:data.amount_on_bank_slip||data.amount_requested||0,
+    has_mismatch:mismatch, employee_total:null,
+    required_approvals:requiredApprovals, email_approvals:approvals,
+    approval_matrix_complete:matrixComplete,
+    bank_slip_filename:null, bank_slip_type:null,
+    prechecks_done:false, prechecks_at:null,
+    employee_data:null, total_employees:0, invalid_msisdn_count:0, names_cleaned_count:0,
+    employee_file_name:null, reconciliation:null,
+    finance_status:'PENDING', finance_approved_by:null, finance_approved_at:null, finance_notes:null,
+    sent_to_checker:false,
+    n8n_source:true, n8n_parsed_at:data.parsed_at||nowTs(),
+    body_preview:data.body_preview||'',
+  };
+  state.tickets[tid].status = deriveStatus(state.tickets[tid]);
+  state.tickets[tid].risk_level = computeRisk(state.tickets[tid]);
+  saveState();
+  logActivity(`${tid} auto-created via n8n from ${data.company||'email'}`);
+  showToast('\uD83E\uDD16 '+tid+' created automatically via n8n');
+}
+
 // ─── KEYBOARD SHORTCUT ────────────────────────────────────────────────────────
 document.addEventListener('keydown', function(e){
   if(e.ctrlKey && e.shiftKey && e.key === 'R'){ e.preventDefault(); resetDemo(); }
@@ -1108,6 +1197,7 @@ document.addEventListener('keydown', function(e){
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 initState();
+checkN8nWebhook();
 renderDashboard();
 
 </script>
