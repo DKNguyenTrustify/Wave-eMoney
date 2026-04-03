@@ -1,0 +1,37 @@
+%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#FF6D5A', 'primaryTextColor': '#fff', 'lineColor': '#64748b', 'fontSize': '13px'}}}%%
+
+flowchart LR
+    subgraph TRIGGERS["Dual Triggers"]
+        W["Webhook<br/>POST /emi-intake"]
+        G["Gmail Trigger<br/>(polls admin inbox)"]
+    end
+
+    subgraph AI["AI Processing"]
+        P["Prepare for AI<br/>(normalize fields,<br/>build prompt)"]
+        LLM["Groq API<br/>(llama-3.3-70b)<br/>FREE TIER"]
+        V["Parse & Validate<br/>(authority matrix,<br/>scenario detection)"]
+    end
+
+    subgraph OUTPUT["Output Routing"]
+        R{"Route by<br/>Source"}
+        WH["Respond to<br/>Webhook<br/>(JSON + URL)"]
+        EM["Send Gmail<br/>Notification<br/>(branded HTML)"]
+    end
+
+    DB["Dashboard<br/>wave-emi-dashboard.vercel.app<br/>(auto-creates ticket)"]
+
+    W --> P
+    G --> P
+    P --> LLM
+    LLM --> V
+    V --> R
+    R -->|webhook| WH
+    R -->|email| EM
+    WH -.->|"dashboard_url"| DB
+    EM -.->|"dashboard link<br/>in email"| DB
+
+    style TRIGGERS fill:#001E4E,color:#fff
+    style AI fill:#0057B8,color:#fff
+    style OUTPUT fill:#00C2D4,color:#001E4E
+    style DB fill:#16a34a,color:#fff
+    style LLM fill:#FF6D5A,color:#fff

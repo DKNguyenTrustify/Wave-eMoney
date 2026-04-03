@@ -1,0 +1,85 @@
+%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#0057B8', 'primaryTextColor': '#fff', 'lineColor': '#64748b', 'fontSize': '13px'}}}%%
+
+flowchart LR
+    subgraph TRIGGER["Phase 1: Request Intake"]
+        direction TB
+        A["Client sends email\n(Employee list + Approval + Bank slip)"]
+        B["Forward to\nadmin mailbox"]
+        C["n8n Gmail Trigger"]
+        A --> B --> C
+    end
+
+    subgraph AI["AI Parsing (n8n)"]
+        direction TB
+        D["Normalize\nemail fields"]
+        E["Groq AI\nExtract"]
+        F["Validate\nauthority matrix"]
+        D --> E --> F
+    end
+
+    subgraph INTAKE["Dashboard: Intake"]
+        direction TB
+        G["Auto-create\nticket"]
+        H["Upload employee\nlist + bank slip"]
+        J["Pre-checks\n(MSISDN, amounts)"]
+        G --> H --> J
+    end
+
+    subgraph FINANCE["Phase 3: Finance"]
+        direction TB
+        K["Finance reviews\nmatrix + amounts"]
+        L{Approve?}
+        K --> L
+    end
+
+    subgraph EMONEY["Phase 2+5: E-Money"]
+        direction TB
+        M["Generate\nUtiba CSVs"]
+        N["Checker\nReview"]
+        O{Approve?}
+        P["Group Mapping\n(OTC only)"]
+        M --> N --> O
+        O -->|OTC| P
+    end
+
+    subgraph MONITOR["Phase 6: Close"]
+        direction TB
+        Q["Monitor\ndisbursement"]
+        R["Close case\n+ archive"]
+        Q --> R
+    end
+
+    C --> D
+    F -->|disbursement| G
+    F -->|not disbursement| DROP["Drop"]
+    J --> K
+    L -->|Yes| M
+    L -->|No| REJ["Reject"]
+    O -->|Approve| Q
+    P --> Q
+    R --> DONE["Completed"]
+
+    classDef triggerStyle fill:#001E4E,color:#fff,stroke:#001E4E
+    classDef aiStyle fill:#0057B8,color:#fff,stroke:#0057B8
+    classDef intakeStyle fill:#2563eb,color:#fff,stroke:#2563eb
+    classDef financeStyle fill:#d97706,color:#fff,stroke:#d97706
+    classDef emoneyStyle fill:#0891b2,color:#fff,stroke:#0891b2
+    classDef monitorStyle fill:#16a34a,color:#fff,stroke:#16a34a
+    classDef dropStyle fill:#fee2e2,color:#dc2626,stroke:#fca5a5
+    classDef doneStyle fill:#dcfce7,color:#166534,stroke:#86efac
+
+    class A,B,C triggerStyle
+    class D,E,F aiStyle
+    class G,H,J intakeStyle
+    class K,L financeStyle
+    class M,N,O,P emoneyStyle
+    class Q,R monitorStyle
+    class DROP,REJ dropStyle
+    class DONE doneStyle
+
+    style TRIGGER fill:#f0f4ff,color:#001E4E,stroke:#001E4E
+    style AI fill:#eff6ff,color:#0057B8,stroke:#0057B8
+    style INTAKE fill:#eff6ff,color:#2563eb,stroke:#2563eb
+    style FINANCE fill:#fffbeb,color:#92400e,stroke:#d97706
+    style EMONEY fill:#ecfeff,color:#155e75,stroke:#0891b2
+    style MONITOR fill:#f0fdf4,color:#166534,stroke:#16a34a

@@ -1,5 +1,5 @@
 {
-  "name": "EMI Email Intake Pipeline (Webhook + Outlook)",
+  "name": "EMI Email Intake Pipeline (Webhook + Gmail + AI)",
   "nodes": [
     {
       "parameters": {
@@ -17,108 +17,68 @@
     },
     {
       "parameters": {
-        "event": "messageReceived",
-        "options": {
-          "folderToWatch": "inbox"
-        }
+        "simple": true,
+        "filters": {}
       },
-      "id": "outlook-trigger",
-      "name": "Outlook Trigger",
-      "type": "n8n-nodes-base.microsoftOutlookTrigger",
-      "typeVersion": 2,
+      "id": "gmail-trigger",
+      "name": "Gmail Trigger",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1,
       "position": [250, 520],
       "credentials": {
-        "microsoftOutlookOAuth2Api": {
-          "id": "REPLACE_WITH_YOUR_OUTLOOK_CREDENTIAL_ID",
-          "name": "Microsoft Outlook (khanhnguyen@zeyalabs.ai)"
+        "gmailOAuth2": {
+          "id": "REPLACE_WITH_GMAIL_CREDENTIAL_ID",
+          "name": "Gmail (personal)"
         }
-      },
-      "notes": "SETUP: In n8n Cloud > Credentials > Add > Microsoft Outlook OAuth2. Login with khanhnguyen@zeyalabs.ai. Grant Mail.Read + Mail.Send permissions. Then copy the credential ID here."
+      }
     },
     {
       "parameters": {
-        "jsCode": "// Normalize both webhook POST and Outlook trigger into flat fields\n// Source auto-detected: Outlook emails have bodyPreview; webhooks do not\n\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const d = item.json;\n\n  // DETECT SOURCE: Outlook trigger has bodyPreview or body.contentType\n  const isOutlook = d.bodyPreview !== undefined || d.body?.contentType !== undefined;\n  const source = isOutlook ? 'outlook' : 'webhook';\n\n  // SUBJECT\n  const subject = isOutlook\n    ? (d.subject || '')\n    : (d.body?.subject || d.subject || '');\n\n  // BODY: Outlook uses bodyPreview or body.content; webhook uses body field\n  let body = '';\n  if (isOutlook) {\n    body = d.bodyPreview || d.body?.content || '';\n  } else {\n    const raw = d.body?.body || d.bodyPreview || d.body || '';\n    body = typeof raw === 'string' ? raw : '';\n  }\n\n  // FROM: Outlook uses from.emailAddress.address; webhook uses flat 'from'\n  let from = '';\n  if (isOutlook) {\n    from = d.from?.emailAddress?.address || d.sender?.emailAddress?.address || '';\n  } else {\n    from = d.body?.from || d.from || '';\n  }\n\n  results.push({\n    json: {\n      _source: source,\n      subject: typeof subject === 'string' ? subject : '',\n      body: typeof body === 'string' ? body : '',\n      from: typeof from === 'string' ? from : '',\n      received_at: new Date().toISOString(),\n    }\n  });\n}\n\nreturn results;"
+        "jsCode": "// Prepare raw email data for AI extraction\n// Handles both webhook (lowercase) and Gmail (capitalized) field names\n\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const d = item.json;\n\n  // Detect source\n  const isEmail = d.snippet !== undefined || d.threadId !== undefined || d.Subject !== undefined || d.From !== undefined;\n  const source = isEmail ? 'email' : 'webhook';\n\n  // Extract raw fields — handle Gmail capitalized + webhook lowercase\n  const subject = isEmail\n    ? (d.Subject || d.subject || '')\n    : (d.body?.subject || d.subject || '');\n\n  let body = '';\n  if (isEmail) {\n    body = d.textPlain || d.snippet || d.textHtml || '';\n    body = body.replace(/<[^>]*>/g, ' ').replace(/\\s+/g, ' ').trim();\n  } else {\n    const raw = d.body?.body || d.bodyPreview || d.body || '';\n    body = typeof raw === 'string' ? raw : '';\n  }\n\n  let from = '';\n  if (isEmail) {\n    const rawFrom = d.From || d.from || '';\n    if (typeof rawFrom === 'string') {\n      const m = rawFrom.match(/<([^>]+)>/);\n      from = m ? m[1] : rawFrom;\n    }\n  } else {\n    from = d.body?.from || d.from || '';\n  }\n\n  // Build AI prompt (works with any LLM: Groq, Gemini, OpenAI, etc.)\n  const prompt = `You are an email parser for Wave Money's EMI (Electronic Money Issuer) salary disbursement pipeline in Myanmar.\n\nAnalyze this email and extract structured data.\n\nEMAIL SUBJECT: ${subject}\nEMAIL BODY: ${body}\nFROM: ${from}\n\nReturn a JSON object with these exact fields:\n{\n  \"is_disbursement\": true or false (is this a salary/EMI/disbursement/OTC request?),\n  \"company\": \"company name requesting disbursement\",\n  \"amount\": number (total amount in MMK, 0 if not found),\n  \"type\": \"SalaryToOTC\" if OTC or over-the-counter is mentioned, otherwise \"SalaryToMA\",\n  \"approvers\": [{\"name\": \"person name\", \"role\": \"their title/role\", \"status\": \"Approved\"}],\n  \"body_preview\": \"first 200 characters of the email body\"\n}\n\nIMPORTANT: Return ONLY the JSON object, no explanation or markdown.`;\n\n  results.push({\n    json: {\n      _source: source,\n      from_email: from,\n      original_subject: subject,\n      prompt: prompt\n    }\n  });\n}\n\nreturn results;"
       },
-      "id": "normalize-data",
-      "name": "Normalize Data",
+      "id": "prepare-for-ai",
+      "name": "Prepare for AI",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [520, 400]
     },
     {
       "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": false,
-            "typeValidation": "loose"
-          },
-          "conditions": [
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
             {
-              "id": "cond-1",
-              "leftValue": "={{ $json.subject }}",
-              "rightValue": "Salary",
-              "operator": {
-                "type": "string",
-                "operation": "contains"
-              }
+              "name": "Content-Type",
+              "value": "application/json"
             },
             {
-              "id": "cond-2",
-              "leftValue": "={{ $json.subject }}",
-              "rightValue": "Disbursement",
-              "operator": {
-                "type": "string",
-                "operation": "contains"
-              }
-            },
-            {
-              "id": "cond-3",
-              "leftValue": "={{ $json.subject }}",
-              "rightValue": "EMI",
-              "operator": {
-                "type": "string",
-                "operation": "contains"
-              }
-            },
-            {
-              "id": "cond-4",
-              "leftValue": "={{ $json.subject }}",
-              "rightValue": "OTC",
-              "operator": {
-                "type": "string",
-                "operation": "contains"
-              }
+              "name": "Authorization",
+              "value": "Bearer REPLACE_WITH_GROQ_API_KEY"
             }
-          ],
-          "combinator": "or"
+          ]
         },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: $json.prompt }], response_format: { type: 'json_object' }, temperature: 0.1 }) }}",
         "options": {}
       },
-      "id": "if-keyword-filter",
-      "name": "Keyword Filter",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [760, 400]
+      "id": "groq-extract",
+      "name": "Groq AI Extract",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [780, 400]
     },
     {
       "parameters": {
-        "jsCode": "// Extract structured disbursement data from normalized email fields\n\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const subject = item.json.subject || '';\n  const body = item.json.body || '';\n  const from = item.json.from || '';\n  const source = item.json._source || 'webhook';\n\n  // COMPANY NAME\n  let company = 'Unknown Company';\n  const companyMatch = subject.match(/[\\u2013\\u2014\\-]\\s*(.+)$/);\n  if (companyMatch) company = companyMatch[1].trim();\n\n  // AMOUNT\n  let amount = 0;\n  const amountMatch = body.match(/([\\d,]+)\\s*(?:MMK|Kyat)/i)\n    || body.match(/(?:MMK|Kyat)\\s*([\\d,]+)/i)\n    || subject.match(/([\\d,]+)\\s*(?:MMK|Kyat)/i);\n  if (amountMatch) {\n    amount = parseInt(amountMatch[1].replace(/,/g, ''), 10);\n  }\n\n  // TYPE\n  const isOTC = /OTC/i.test(subject) || /OTC/i.test(body) || /over.the.counter/i.test(body);\n  const type = isOTC ? 'SalaryToOTC' : 'SalaryToMA';\n\n  // APPROVERS\n  const approvals = [];\n  const pattern = /(?:Approved by|authorized by|sign-off:?)\\s+([^(]+?)\\s*\\(([^)]+)\\)/gi;\n  let match;\n  while ((match = pattern.exec(body)) !== null) {\n    const name = match[1].trim();\n    const role = match[2].trim();\n    if (!approvals.find(a => a.name === name)) {\n      approvals.push({ name, role, status: 'Approved' });\n    }\n  }\n\n  results.push({\n    json: {\n      _source: source,\n      company,\n      type,\n      amount_requested: amount,\n      amount_on_bank_slip: amount,\n      currency: 'MMK',\n      approvals,\n      required_approvals: ['Sales HOD', 'Finance Manager'],\n      body_preview: body.substring(0, 200),\n      from_email: from,\n      original_subject: subject,\n      parsed_at: new Date().toISOString(),\n    }\n  });\n}\n\nreturn results;"
+        "jsCode": "// Parse AI response (Groq/OpenAI format), validate authority matrix, generate dashboard URL\n\nconst items = $input.all();\nconst results = [];\n\n// Retrieve metadata from Prepare node (HTTP Request replaces item data)\nconst prepData = $('Prepare for AI').first().json;\nconst source = prepData._source;\nconst from_email = prepData.from_email;\nconst original_subject = prepData.original_subject;\n\nfor (const item of items) {\n  const d = item.json;\n\n  // Extract AI response text — Groq/OpenAI format\n  let aiText = '';\n  if (d.choices && d.choices[0]) {\n    aiText = d.choices[0].message.content || '';\n  }\n\n  // Parse JSON from AI response\n  let parsed = {};\n  try {\n    parsed = JSON.parse(aiText);\n  } catch (e) {\n    // Fallback: try extracting from markdown code block\n    const jsonMatch = aiText.match(/```json?\\s*([\\s\\S]*?)```/);\n    if (jsonMatch) {\n      try { parsed = JSON.parse(jsonMatch[1]); } catch (e2) {}\n    }\n  }\n\n  // AI-powered keyword filter: skip non-disbursement emails\n  if (!parsed.is_disbursement) {\n    return [];\n  }\n\n  // AUTHORITY MATRIX CHECK\n  const required = ['Sales HOD', 'Finance Manager'];\n  const matrixResults = required.map(req => {\n    const found = (parsed.approvers || []).find(a =>\n      a.role.toLowerCase().includes(req.toLowerCase())\n    );\n    return {\n      requiredRole: req,\n      found: !!found,\n      foundName: found ? found.name : 'MISSING',\n    };\n  });\n  const matrixComplete = matrixResults.every(m => m.found);\n\n  // SCENARIO DETECTION\n  let scenario = 'NORMAL';\n  if (!matrixComplete) {\n    scenario = 'MISSING_APPROVAL';\n  }\n\n  // BUILD TICKET PAYLOAD\n  const ticket = {\n    company: parsed.company || 'Unknown Company',\n    type: parsed.type || 'SalaryToMA',\n    amount_requested: parsed.amount || 0,\n    amount_on_bank_slip: parsed.amount || 0,\n    currency: 'MMK',\n    approvals: parsed.approvers || [],\n    required_approvals: required,\n    body_preview: parsed.body_preview || '',\n    parsed_at: new Date().toISOString(),\n    scenario,\n    approval_matrix_complete: matrixComplete,\n    ai_parsed: true,\n  };\n\n  // GENERATE DASHBOARD URL\n  const encoded = Buffer.from(JSON.stringify(ticket)).toString('base64');\n  const dashboardUrl = `https://wave-emi-dashboard.vercel.app/?n8n_ticket=${encoded}`;\n\n  results.push({\n    json: {\n      _source: source,\n      dashboard_url: dashboardUrl,\n      company: parsed.company || 'Unknown Company',\n      amount: parsed.amount || 0,\n      type: parsed.type || 'SalaryToMA',\n      scenario,\n      matrix_complete: matrixComplete,\n      matrix_details: matrixResults,\n      from_email: from_email,\n      original_subject: original_subject,\n    }\n  });\n}\n\nreturn results;"
       },
-      "id": "code-parse-email",
-      "name": "Parse Email",
+      "id": "parse-validate",
+      "name": "AI Parse & Validate",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1000, 400]
-    },
-    {
-      "parameters": {
-        "jsCode": "// Check authority matrix + generate the dashboard URL\n\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const data = item.json;\n\n  // AUTHORITY MATRIX CHECK\n  const required = data.required_approvals || ['Sales HOD', 'Finance Manager'];\n  const matrixResults = required.map(req => {\n    const found = (data.approvals || []).find(a =>\n      a.role.toLowerCase().includes(req.toLowerCase())\n    );\n    return {\n      requiredRole: req,\n      found: !!found,\n      foundName: found ? found.name : 'MISSING',\n    };\n  });\n  const matrixComplete = matrixResults.every(m => m.found);\n\n  // SCENARIO DETECTION\n  let scenario = 'NORMAL';\n  if (data.amount_requested !== data.amount_on_bank_slip) {\n    scenario = 'AMOUNT_MISMATCH';\n  } else if (!matrixComplete) {\n    scenario = 'MISSING_APPROVAL';\n  }\n\n  // BUILD TICKET PAYLOAD\n  const ticket = {\n    company: data.company,\n    type: data.type,\n    amount_requested: data.amount_requested,\n    amount_on_bank_slip: data.amount_on_bank_slip,\n    currency: data.currency,\n    approvals: data.approvals,\n    required_approvals: data.required_approvals,\n    body_preview: data.body_preview,\n    parsed_at: data.parsed_at,\n    scenario,\n    approval_matrix_complete: matrixComplete,\n  };\n\n  // GENERATE DASHBOARD URL\n  const encoded = Buffer.from(JSON.stringify(ticket)).toString('base64');\n  const dashboardUrl = `https://wave-emi-dashboard.vercel.app/?n8n_ticket=${encoded}`;\n\n  results.push({\n    json: {\n      _source: data._source,\n      dashboard_url: dashboardUrl,\n      company: data.company,\n      amount: data.amount_requested,\n      type: data.type,\n      scenario,\n      matrix_complete: matrixComplete,\n      matrix_details: matrixResults,\n      from_email: data.from_email,\n      original_subject: data.original_subject,\n    }\n  });\n}\n\nreturn results;"
-      },
-      "id": "code-validate-url",
-      "name": "Validate & Generate URL",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [1240, 400]
+      "position": [1060, 400]
     },
     {
       "parameters": {
@@ -146,7 +106,7 @@
       "name": "Route by Source",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1480, 400]
+      "position": [1320, 400]
     },
     {
       "parameters": {
@@ -158,29 +118,27 @@
       "name": "Respond with Dashboard URL",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [1720, 300]
+      "position": [1580, 300]
     },
     {
       "parameters": {
         "sendTo": "={{ $json.from_email || 'khanhnguyen@zeyalabs.ai' }}",
         "subject": "=EMI Pipeline: {{ $json.company }} — {{ $json.scenario }}",
-        "bodyContent": "=<h2>EMI Disbursement Ticket Created</h2><p><strong>Company:</strong> {{ $json.company }}<br><strong>Amount:</strong> {{ $json.amount }} MMK<br><strong>Type:</strong> {{ $json.type }}<br><strong>Scenario:</strong> {{ $json.scenario }}<br><strong>Authority Matrix:</strong> {{ $json.matrix_complete ? 'Complete' : 'INCOMPLETE' }}</p><p><a href=\"{{ $json.dashboard_url }}\">Open Dashboard to Review</a></p><hr><p style=\"color:#666;font-size:12px\">Auto-generated by Wave EMI Pipeline (n8n)</p>",
-        "options": {
-          "importance": "normal"
-        }
+        "emailType": "html",
+        "message": "=<div style=\"font-family:Arial,sans-serif;max-width:600px;margin:0 auto\"><div style=\"background:#001E4E;padding:20px;border-radius:12px 12px 0 0\"><h2 style=\"color:#fff;margin:0\">Wave EMI Pipeline</h2><p style=\"color:#00C2D4;margin:4px 0 0\">AI-Powered Disbursement Processing</p></div><div style=\"background:#f8fafc;padding:24px;border:1px solid #e2e8f0\"><h3 style=\"color:#001E4E;margin-top:0\">New Ticket Created</h3><table style=\"width:100%;border-collapse:collapse\"><tr><td style=\"padding:8px 0;color:#64748b\">Company</td><td style=\"padding:8px 0;font-weight:bold\">{{ $json.company }}</td></tr><tr><td style=\"padding:8px 0;color:#64748b\">Amount</td><td style=\"padding:8px 0;font-weight:bold\">{{ $json.amount?.toLocaleString() }} MMK</td></tr><tr><td style=\"padding:8px 0;color:#64748b\">Type</td><td style=\"padding:8px 0\">{{ $json.type }}</td></tr><tr><td style=\"padding:8px 0;color:#64748b\">Scenario</td><td style=\"padding:8px 0\"><span style=\"background:{{ $json.scenario === 'NORMAL' ? '#dcfce7' : '#fef3c7' }};color:{{ $json.scenario === 'NORMAL' ? '#166534' : '#92400e' }};padding:4px 12px;border-radius:12px;font-size:13px\">{{ $json.scenario }}</span></td></tr><tr><td style=\"padding:8px 0;color:#64748b\">Authority Matrix</td><td style=\"padding:8px 0\">{{ $json.matrix_complete ? '✅ Complete' : '⚠️ Incomplete' }}</td></tr></table><div style=\"margin-top:24px;text-align:center\"><a href=\"{{ $json.dashboard_url }}\" style=\"display:inline-block;padding:14px 32px;background:#0057B8;color:#fff;text-decoration:none;border-radius:8px;font-weight:bold;font-size:16px\">Open Dashboard to Review</a></div></div><div style=\"background:#f1f5f9;padding:12px 24px;border-radius:0 0 12px 12px;border:1px solid #e2e8f0;border-top:0\"><p style=\"color:#94a3b8;font-size:12px;margin:0\">Parsed by Groq AI (Llama 3.3) | Auto-generated by Wave EMI Pipeline (n8n)</p></div></div>",
+        "options": {}
       },
       "id": "send-notification",
-      "name": "Send Dashboard Notification",
-      "type": "n8n-nodes-base.microsoftOutlook",
+      "name": "Send Gmail Notification",
+      "type": "n8n-nodes-base.gmail",
       "typeVersion": 2,
-      "position": [1720, 520],
+      "position": [1580, 520],
       "credentials": {
-        "microsoftOutlookOAuth2Api": {
-          "id": "REPLACE_WITH_YOUR_OUTLOOK_CREDENTIAL_ID",
-          "name": "Microsoft Outlook (khanhnguyen@zeyalabs.ai)"
+        "gmailOAuth2": {
+          "id": "REPLACE_WITH_GMAIL_CREDENTIAL_ID",
+          "name": "Gmail (personal)"
         }
-      },
-      "notes": "SETUP: Uses same Microsoft OAuth2 credential as Outlook Trigger. Sends dashboard link to the original email sender (or fallback to khanhnguyen@zeyalabs.ai)."
+      }
     }
   ],
   "connections": {
@@ -188,59 +146,47 @@
       "main": [
         [
           {
-            "node": "Normalize Data",
+            "node": "Prepare for AI",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Outlook Trigger": {
+    "Gmail Trigger": {
       "main": [
         [
           {
-            "node": "Normalize Data",
+            "node": "Prepare for AI",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Normalize Data": {
+    "Prepare for AI": {
       "main": [
         [
           {
-            "node": "Keyword Filter",
+            "node": "Groq AI Extract",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Keyword Filter": {
+    "Groq AI Extract": {
       "main": [
         [
           {
-            "node": "Parse Email",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        []
-      ]
-    },
-    "Parse Email": {
-      "main": [
-        [
-          {
-            "node": "Validate & Generate URL",
+            "node": "AI Parse & Validate",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Validate & Generate URL": {
+    "AI Parse & Validate": {
       "main": [
         [
           {
@@ -262,7 +208,7 @@
         ],
         [
           {
-            "node": "Send Dashboard Notification",
+            "node": "Send Gmail Notification",
             "type": "main",
             "index": 0
           }
