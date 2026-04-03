@@ -981,7 +981,14 @@ function renderEmails(){
       <span style="color:var(--muted);font-size:13px;margin-left:8px">${n8nTickets.length} ticket(s) auto-created from email</span>
       <div style="margin-top:8px">`;
     n8nTickets.forEach(t => {
-      html += `<div style="font-size:13px;padding:4px 0">${t.id} \u00B7 ${t.company} \u00B7 ${fmt(t.amount_requested)} MMK \u00B7 ${statusBadgeHtml(t.status)}</div>`;
+      html += `<div style="font-size:13px;padding:6px 0;border-bottom:1px solid #f1f5f9">
+        <div>${t.id} \u00B7 ${t.company} \u00B7 ${fmt(t.amount_requested)} MMK \u00B7 ${statusBadgeHtml(t.status)}
+        ${t.has_attachments ? '<span style="background:#e0f2fe;color:#0369a1;font-size:11px;padding:2px 6px;border-radius:4px;margin-left:4px">\u{1F4CE} '+t.attachment_count+'</span>' : ''}</div>
+        <div style="color:var(--muted);font-size:12px;margin-top:2px">
+          ${t.from_email ? 'From: '+t.from_email : ''}${t.to_email ? ' \u00B7 To: '+t.to_email : ''}${t.email_date ? ' \u00B7 '+t.email_date : ''}
+          ${t.attachment_names && t.attachment_names.length ? '<br>Files: '+t.attachment_names.join(', ') : ''}
+        </div>
+      </div>`;
     });
     html += '</div></div></div>';
   }
@@ -1253,6 +1260,15 @@ function renderFinance(){
     html += `<div class="card"><div class="card-header"><div class="card-title">${tid} \u00B7 ${ticket.company} \u00B7 ${typeBadgeHtml(ticket.type)}</div>${riskBadgeHtml(ticket.risk_level)}</div><div class="card-body">`;
 
     html += `<div style="font-size:15px;font-weight:700;margin-bottom:16px">Requested: ${fmt(ticket.amount_requested)} MMK</div>`;
+
+    // Email metadata (n8n-sourced tickets)
+    if(ticket.n8n_source && (ticket.from_email || ticket.to_email || ticket.email_date)){
+      html += `<div style="font-size:12px;color:var(--muted);margin-bottom:12px;border-left:3px solid #FF6D5A;padding-left:8px">
+        ${ticket.from_email ? 'From: <strong>'+ticket.from_email+'</strong>' : ''}${ticket.to_email ? ' \u00B7 To: '+ticket.to_email : ''}
+        ${ticket.email_date ? '<br>Date: '+ticket.email_date : ''}${ticket.thread_id ? ' \u00B7 Thread: '+ticket.thread_id : ''}
+        ${ticket.has_attachments ? '<br>\u{1F4CE} Attachments: '+(ticket.attachment_names||[]).join(', ') : ''}
+      </div>`;
+    }
 
     // Authority matrix
     const matrix = checkAuthorityMatrix(ticket);
@@ -2099,6 +2115,17 @@ function createTicketFromN8n(data){
     sent_to_checker:false,
     n8n_source:true, n8n_parsed_at:data.parsed_at||nowTs(),
     body_preview:data.body_preview||'',
+    // Email metadata (v2)
+    from_email:data.from_email||'',
+    to_email:data.to_email||'',
+    cc_emails:data.cc_emails||'',
+    reply_to:data.reply_to||'',
+    email_date:data.email_date||'',
+    message_id:data.message_id||'',
+    thread_id:data.thread_id||'',
+    has_attachments:data.has_attachments||false,
+    attachment_names:data.attachment_names||[],
+    attachment_count:data.attachment_count||0,
   };
   state.tickets[tid].status = deriveStatus(state.tickets[tid]);
   state.tickets[tid].risk_level = computeRisk(state.tickets[tid]);
