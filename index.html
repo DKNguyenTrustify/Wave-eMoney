@@ -1270,6 +1270,18 @@ function renderFinance(){
       </div>`;
     }
 
+    // v3: Vision results (only shows if vision was processed)
+    if(ticket.vision_parsed){
+      const conf = (ticket.vision_confidence*100).toFixed(0);
+      html += `<div style="font-size:12px;margin-bottom:12px;border-left:3px solid #7c3aed;padding:8px 8px 8px 10px;background:#f5f3ff;border-radius:0 6px 6px 0">
+        <strong style="color:#5b21b6">\uD83D\uDC41\uFE0F Vision AI</strong> &middot; ${ticket.document_type||'document'} &middot; Confidence: ${conf}%
+        ${ticket.amount_on_document ? (ticket.has_mismatch
+          ? '<br><span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:11px">\u26A0\uFE0F Mismatch: doc=' + fmt(ticket.amount_on_document) + ' vs email=' + fmt(ticket.amount_requested) + '</span>'
+          : '<br><span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:4px;font-size:11px">\u2705 Amount matches: ' + fmt(ticket.amount_on_document) + '</span>') : ''}
+        ${ticket.document_signers && ticket.document_signers.length ? '<br>Signers: ' + ticket.document_signers.map(s=>s.name+(s.role?' ('+s.role+')':'')).join(', ') : ''}
+      </div>`;
+    }
+
     // Authority matrix
     const matrix = checkAuthorityMatrix(ticket);
     html += `<strong style="font-size:13px">\uD83D\uDD10 Authority Matrix</strong>
@@ -2126,6 +2138,13 @@ function createTicketFromN8n(data){
     has_attachments:data.has_attachments||false,
     attachment_names:data.attachment_names||[],
     attachment_count:data.attachment_count||0,
+    // v3: vision fields (safe defaults — v2 tickets simply won't have these)
+    vision_parsed:data.vision_parsed||false,
+    vision_confidence:data.vision_confidence||0,
+    vision_status:data.vision_status||'none',
+    amount_on_document:data.amount_on_document||0,
+    document_type:data.document_type||'',
+    document_signers:data.document_signers||[],
   };
   state.tickets[tid].status = deriveStatus(state.tickets[tid]);
   state.tickets[tid].risk_level = computeRisk(state.tickets[tid]);
