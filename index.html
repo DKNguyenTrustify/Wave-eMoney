@@ -909,6 +909,7 @@ function renderDashboard(){
   const completed = countByStatus('COMPLETED') + countByStatus('SENT_TO_CHECKER');
   const mismatches = allTickets().filter(t=>t.has_mismatch).length;
   const highRisk = allTickets().filter(t=>t.risk_level==='HIGH').length;
+  const visionProcessed = allTickets().filter(t=>t.vision_parsed).length;
 
   let html = `
     <div class="section-title">\uD83C\uDF0A Wave EMI Pipeline Dashboard</div>
@@ -920,7 +921,7 @@ function renderDashboard(){
       <div class="stat-card ${inProg>0?'blue':''}"><div class="stat-label">Processing</div><div class="stat-value">${inProg}</div><div class="stat-sub">in pipeline</div></div>
       <div class="stat-card ok"><div class="stat-label">Completed</div><div class="stat-value">${completed}</div><div class="stat-sub">disbursed</div></div>
     </div>
-    ${mismatches>0||highRisk>0?`<div style="display:flex;gap:12px;margin-bottom:16px">${mismatches>0?`<div class="alert alert-warn" style="flex:1;margin:0">\u26A0\uFE0F ${mismatches} amount mismatch(es)</div>`:''}${highRisk>0?`<div class="alert alert-danger" style="flex:1;margin:0">\uD83D\uDD34 ${highRisk} high-risk ticket(s)</div>`:''}</div>`:''}
+    ${mismatches>0||highRisk>0||visionProcessed>0?`<div style="display:flex;gap:12px;margin-bottom:16px">${visionProcessed>0?`<div class="alert" style="flex:1;margin:0;background:#f5f3ff;border-color:#c4b5fd;color:#5b21b6">\uD83D\uDC41 ${visionProcessed} ticket(s) with Vision AI</div>`:''}${mismatches>0?`<div class="alert alert-warn" style="flex:1;margin:0">\u26A0\uFE0F ${mismatches} amount mismatch(es)</div>`:''}${highRisk>0?`<div class="alert alert-danger" style="flex:1;margin:0">\uD83D\uDD34 ${highRisk} high-risk ticket(s)</div>`:''}</div>`:''}
   `;
 
   if(tickets.length === 0){
@@ -929,7 +930,7 @@ function renderDashboard(){
     html += `<div class="card"><div class="card-header"><div class="card-title">All Tickets</div></div>
       <div class="table-scroll"><table class="ticket-table"><thead><tr>
         <th>ID</th><th>Company</th><th>Type</th><th>Amount</th>
-        <th>Track A (Pre-checks)</th><th>Track B (Finance)</th><th>Status</th><th>Risk</th>
+        <th>Vision</th><th>Track A (Pre-checks)</th><th>Track B (Finance)</th><th>Status</th><th>Risk</th>
       </tr></thead><tbody>`;
     tickets.forEach(t => {
       const trackA = t.prechecks_done ? '<span style="color:#16a34a;font-weight:600">\u2705 Done</span>' : '<span style="color:#856404;font-weight:600">\u23F3 Pending</span>';
@@ -937,10 +938,19 @@ function renderDashboard(){
       if(t.finance_status==='APPROVED') trackB = '<span style="color:#16a34a;font-weight:600">\u2705 Approved</span>';
       else if(t.finance_status==='REJECTED') trackB = '<span style="color:#dc2626;font-weight:600">\u274C Rejected</span>';
       const n8nBadge = t.n8n_source ? ' <span style="background:#FF6D5A;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:700">n8n</span>' : '';
+      let visionCol = '<span style="color:#94a3b8;font-size:12px">—</span>';
+      if(t.vision_parsed){
+        const conf = (t.vision_confidence*100).toFixed(0);
+        visionCol = `<span style="background:#f5f3ff;color:#7c3aed;font-size:11px;padding:2px 6px;border-radius:4px;font-weight:600">👁 ${conf}%</span>`;
+        if(t.amount_on_document && t.has_mismatch) visionCol += '<br><span style="background:#fef3c7;color:#92400e;font-size:10px;padding:1px 4px;border-radius:3px">⚠ mismatch</span>';
+        else if(t.amount_on_document) visionCol += '<br><span style="background:#dcfce7;color:#166534;font-size:10px;padding:1px 4px;border-radius:3px">✓ match</span>';
+      } else if(t.vision_status && t.vision_status !== 'none'){
+        visionCol = `<span style="color:#dc2626;font-size:11px">${t.vision_status}</span>`;
+      }
       html += `<tr>
         <td><strong>${t.id}</strong>${n8nBadge}</td><td>${t.company}</td><td>${typeBadgeHtml(t.type)}</td>
         <td style="font-weight:700">${fmt(t.amount_requested)} MMK</td>
-        <td>${trackA}</td><td>${trackB}</td>
+        <td>${visionCol}</td><td>${trackA}</td><td>${trackB}</td>
         <td>${statusBadgeHtml(t.status)}</td><td>${riskBadgeHtml(t.risk_level)}</td>
       </tr>`;
     });
@@ -981,12 +991,20 @@ function renderEmails(){
       <span style="color:var(--muted);font-size:13px;margin-left:8px">${n8nTickets.length} ticket(s) auto-created from email</span>
       <div style="margin-top:8px">`;
     n8nTickets.forEach(t => {
+      let visionBadge = '';
+      if(t.vision_parsed){
+        const conf = (t.vision_confidence*100).toFixed(0);
+        visionBadge = `<span style="background:#f5f3ff;color:#7c3aed;font-size:11px;padding:2px 6px;border-radius:4px;margin-left:4px;font-weight:600">\uD83D\uDC41 Vision ${conf}%</span>`;
+        if(t.amount_on_document && t.has_mismatch) visionBadge += `<span style="background:#fef3c7;color:#92400e;font-size:11px;padding:2px 6px;border-radius:4px;margin-left:4px">\u26A0 Doc: ${fmt(t.amount_on_document)} vs Email: ${fmt(t.amount_requested)}</span>`;
+        else if(t.amount_on_document) visionBadge += `<span style="background:#dcfce7;color:#166534;font-size:11px;padding:2px 6px;border-radius:4px;margin-left:4px">\u2713 Amount match</span>`;
+      }
       html += `<div style="font-size:13px;padding:6px 0;border-bottom:1px solid #f1f5f9">
         <div>${t.id} \u00B7 ${t.company} \u00B7 ${fmt(t.amount_requested)} MMK \u00B7 ${statusBadgeHtml(t.status)}
-        ${t.has_attachments ? '<span style="background:#e0f2fe;color:#0369a1;font-size:11px;padding:2px 6px;border-radius:4px;margin-left:4px">\u{1F4CE} '+t.attachment_count+'</span>' : ''}</div>
+        ${t.has_attachments ? '<span style="background:#e0f2fe;color:#0369a1;font-size:11px;padding:2px 6px;border-radius:4px;margin-left:4px">\u{1F4CE} '+t.attachment_count+'</span>' : ''}${visionBadge}</div>
         <div style="color:var(--muted);font-size:12px;margin-top:2px">
           ${t.from_email ? 'From: '+t.from_email : ''}${t.to_email ? ' \u00B7 To: '+t.to_email : ''}${t.email_date ? ' \u00B7 '+t.email_date : ''}
           ${t.attachment_names && t.attachment_names.length ? '<br>Files: '+t.attachment_names.join(', ') : ''}
+          ${t.vision_parsed && t.document_type ? '<br>Document: '+t.document_type+(t.document_signers&&t.document_signers.length?' \u00B7 Signers: '+t.document_signers.map(s=>s.name).join(', '):'') : ''}
         </div>
       </div>`;
     });
