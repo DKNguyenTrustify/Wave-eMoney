@@ -1,9 +1,9 @@
 # Phase 2: UI/UX Enhancement — Implementation Plan
 
-**Version:** Phase 2 (post-v3 pipeline verification)
-**Status:** PLAN — review before executing
+**Version:** Phase 2 v2 (reviewed & refined April 4, 2026)
+**Status:** IMPLEMENTED — all 7 tasks complete (April 4, 2026). See `Phase2_Execution_Log.md`.
 **Prerequisite:** v3 Vision Pipeline fully operational (verified April 4, 2026)
-**Files to modify:** `index.html` (primary), `n8n-workflow-v3.json` (minor pipeline enhancement)
+**Files to modify:** `index.html` (primary), `n8n-workflow-v3.json` (Task 7a pipeline fix)
 **Estimated effort:** 3-4 hours total
 
 ---
@@ -126,16 +126,17 @@ This phase is compliant:
 
 **Code changes:**
 
-1. **HTML** — Add new modal container after existing modals (~line 405):
+1. **HTML** — Add new modal container after the `modal-emoney-success` modal (search for `</div>` closing `modal-emoney-success`, insert after):
    ```html
    <div class="modal-overlay" id="ticket-detail-modal" onclick="if(event.target===this)this.classList.remove('open')">
-     <div class="modal" style="max-width:800px;max-height:90vh;overflow-y:auto">
+     <div class="modal" style="max-width:900px;max-height:90vh;overflow-y:auto">
        <div id="ticket-detail-content"></div>
      </div>
    </div>
    ```
+   **Note:** 900px (not 800px) — the side-by-side AI comparison cards in Task 4 need ~418px each to display field labels + values comfortably. At 800px minus 64px padding, each card gets only 368px which is too tight.
 
-2. **CSS** — Add styles for the detail modal layout (~line 230):
+2. **CSS** — Add styles after the existing `.modal` rules (search for `/* TOAST */` as landmark, insert before):
    - `.detail-grid` — 2-column grid for side-by-side AI results
    - `.ai-card` — styled card for each AI extraction (text vs vision)
    - `.ai-card.text` — blue accent border
@@ -143,27 +144,42 @@ This phase is compliant:
    - `.detail-section` — section divider with label
    - `.confidence-bar` — horizontal progress bar for confidence %
    - `.mismatch-highlight` — animated yellow highlight for mismatched values
+   - **Row hover for Dashboard table:**
+     ```css
+     .ticket-table tbody tr { cursor: pointer; transition: background 0.15s; }
+     .ticket-table tbody tr:hover { background: #f8fafc; }
+     ```
 
-3. **JS** — New function `openTicketDetail(ticketId)` (~line 2100):
+3. **JS** — New function `openTicketDetail(ticketId)` (insert before the `// ─── KEYBOARD SHORTCUT` section):
    - Looks up ticket from `state.tickets`
    - Builds full detail HTML with all sections
    - Populates `#ticket-detail-content`
    - Opens modal overlay
 
-4. **Dashboard table** — Make ticket ID and company clickable:
+4. **JS** — Add Escape key handler to close modals (add to the existing `keydown` listener):
    ```javascript
-   // Current (line ~941):
+   document.addEventListener('keydown', function(e){
+     if(e.ctrlKey && e.shiftKey && e.key === 'R'){ e.preventDefault(); resetDemo(); }
+     if(e.key === 'Escape') document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open'));
+   });
+   ```
+   This replaces the existing keydown listener (search for `// ─── KEYBOARD SHORTCUT`). Adds Escape support to all modals (demo, e-money success, AND the new ticket detail).
+
+5. **Dashboard table** — Make ticket ID, company, AND full row clickable:
+   ```javascript
+   // Current (in renderDashboard, inside tickets.forEach):
    <td><strong>${t.id}</strong>${n8nBadge}</td><td>${t.company}</td>
 
    // New:
    <td><a href="#" onclick="openTicketDetail('${t.id}');return false" style="...">${t.id}</a>${n8nBadge}</td>
    <td><a href="#" onclick="openTicketDetail('${t.id}');return false">${t.company}</a></td>
    ```
+   Row hover handled by CSS added in step 2. Full `<tr onclick>` is optional since we have the row hover + clickable ID/company.
 
-5. **Incoming Emails n8n tickets** — Make ticket items clickable:
+6. **Incoming Emails n8n tickets** — Make ticket items clickable:
    ```javascript
-   // Current (line ~984): static div
-   // New: wrap in clickable div with cursor:pointer + onclick
+   // Current (in renderEmails, inside n8nTickets.forEach): static <div> containers
+   // New: wrap in clickable div with cursor:pointer + onclick="openTicketDetail('${t.id}')"
    ```
 
 **Estimated effort:** 60-90 minutes
@@ -210,7 +226,7 @@ Document: payroll_form · Signers: Maria Chen
 
 **Code changes:**
 
-1. Replace the `n8nTickets.forEach` block (~line 983-993) with a richer card template
+1. Replace the `n8nTickets.forEach` block (in `renderEmails()`, search for `n8nTickets.forEach`) with a richer card template
 2. Each n8n ticket gets a `.card.email-card` container (same class as mock emails)
 3. Show: subject, from/date, type+scenario badges, vision badge
 4. Two-column amount display (email amount vs document amount)
@@ -269,7 +285,9 @@ original_subject: data.original_subject || '',
 - Include in ticket data (increases URL/localStorage size)
 - Limit to first 1000 characters to keep payload manageable
 
-**Recommendation:** Start with Option A (zero pipeline changes). Add Option B later if 200 chars isn't enough for the demo. The body_preview is generated by Groq from the full email, so it already contains the key information.
+**Recommendation:** Start with Option A (zero pipeline changes). **Test during implementation:** if the 200-char preview looks like a truncated snippet rather than "the email content" in the ticket detail modal, switch to Option B immediately (30 min add-on). The body_preview is generated by Groq from the full email, so it already contains the key information — but visual impression matters for the demo.
+
+**Decision point:** After Task 1 (modal) is built, render `body_preview` in it and visually assess. If it's 1-2 lines and looks thin, escalate to Option B.
 
 **Code changes (Option A):**
 - In `openTicketDetail()`: render `body_preview` in an "Email Content" section
@@ -435,7 +453,7 @@ original_subject: data.original_subject || '',
    function togglePrivacy() {
      if (privacyMode) {
        const pin = prompt('Enter PIN to reveal:');
-       if (pin !== '1234') return; // Simple demo PIN
+       if (!pin || btoa(pin) !== 'MTIzNA==') return; // PIN: not stored in plaintext
      }
      privacyMode = !privacyMode;
      document.body.classList.toggle('privacy-mode', privacyMode);
@@ -445,6 +463,7 @@ original_subject: data.original_subject || '',
      showPage(currentPage);
    }
    ```
+   **Note:** PIN is checked via `btoa()` encoding instead of a plaintext `'1234'` literal. Not real security (base64 is trivially reversible), but prevents the "I can see your password in the source code" moment if someone opens DevTools during a demo.
 4. **Rendering:** Wrap sensitive values in `<span class="sensitive">` tags. CSS rule:
    ```css
    .privacy-mode .sensitive { filter: blur(5px); user-select: none; }
@@ -460,16 +479,35 @@ original_subject: data.original_subject || '',
 
 **Changes to `n8n-workflow-v3.json`:**
 
-**7a: Add `original_subject` to createTicketFromN8n (dashboard-side only)**
+**7a: Add `original_subject` to ticket payload (PIPELINE + DASHBOARD)**
 
-Currently `createTicketFromN8n()` doesn't store `original_subject`. The data IS available in the n8n output (`$json.original_subject`), it's just not saved.
+**Traced the data flow — `original_subject` has a gap:**
 
-```javascript
-// In createTicketFromN8n(), add:
-original_subject: data.original_subject || '',
-```
+| Node | Has `original_subject`? | Location |
+|------|------------------------|----------|
+| Prepare for AI v3 | YES | Output: `original_subject: subject` |
+| AI Parse & Validate v3 | YES in `results[]` output | `original_subject: original_subject` |
+| AI Parse & Validate v3 | **NO in `ticket` object** | Missing from the object that gets base64-encoded into dashboard URL |
+| Dashboard `createTicketFromN8n()` | **NO** | Not read from `data` |
 
-**This is a dashboard-only change** — no pipeline modification needed. The field is already in the n8n output.
+The `ticket` object (which becomes the base64 URL payload) does NOT include `original_subject`. So the dashboard never receives it, even though the n8n node has it.
+
+**Fix — 2 changes:**
+
+1. **Pipeline (`n8n-workflow-v3.json` → AI Parse & Validate v3 code):** Add `original_subject` to the `ticket` object, after the `body_preview` line:
+   ```javascript
+   // In the ticket = { ... } block, add:
+   original_subject: original_subject,
+   ```
+   This ensures it gets base64-encoded into the dashboard URL.
+
+2. **Dashboard (`index.html` → `createTicketFromN8n()`):** Add field to ticket creation:
+   ```javascript
+   // In createTicketFromN8n(), add after body_preview line:
+   original_subject: data.original_subject || '',
+   ```
+
+**After this change:** Re-export the updated JSON and re-import to n8n Cloud (or manually edit the code node in n8n). Existing tickets in localStorage won't have `original_subject` — the UI must handle `t.original_subject || t.company` as fallback gracefully.
 
 **7b: Add `email_body` to pipeline (Option B from Task 3, if needed)**
 
@@ -482,7 +520,7 @@ If 200-char `body_preview` isn't enough:
 
 **Trade-off:** Each ticket grows by ~1KB. With 10 tickets, that's ~10KB in localStorage — negligible. But the dashboard URL (base64-encoded ticket) also grows. Test that the URL doesn't exceed browser limits (~2KB is safe, ~8KB is the practical max for URLs).
 
-**Recommendation:** Implement 7a immediately (zero risk, zero cost). Defer 7b until we confirm body_preview is insufficient.
+**Recommendation:** Implement 7a first (low risk, requires n8n re-import). Defer 7b until we confirm body_preview is insufficient (see Task 3 decision point).
 
 **7c: Carry attachment thumbnail (future — NOT for Phase 2)**
 
@@ -500,11 +538,13 @@ This is complex (image resizing in n8n Code node, significant URL/localStorage b
 ## 4. Build Sequence & Dependencies
 
 ```
-Task 7a (add original_subject to createTicketFromN8n)
-  │   ← Must be first, other tasks depend on this field
+Task 7a (add original_subject to pipeline ticket object + dashboard createTicketFromN8n)
+  │   ← Must be first: pipeline JSON edit + n8n Cloud re-import
+  │   ← After: send a test email to verify original_subject arrives in dashboard
   ▼
-Task 1 (Ticket Detail Modal)
+Task 1 (Ticket Detail Modal + Escape key handler + row hover CSS)
   │   ← Core infrastructure, all other UI features plug into this
+  │   ← Decision point: render body_preview in modal, visually assess if 200 chars is enough
   ▼
 Task 4 (AI Pipeline Results Showcase)
   │   ← Builds the reusable renderAIPipelineSection() function
@@ -515,29 +555,30 @@ Task 2 (Enhanced n8n Ticket Cards)
 Task 5 (Clickable Ticket IDs Everywhere)
   │   ← Uses openTicketDetail() from Task 1
   ▼
-Task 3 (Email Body Display — Option A)
-  │   ← Simple addition to the detail modal
+Task 3 (Email Body Display — Option A, or Option B if decision point triggered)
+  │   ← Simple addition to the detail modal (Option A)
+  │   ← If Option B: pipeline change, +30 min, requires another n8n re-import
   ▼
 Task 6 (Privacy/Blur Toggle)
-      ← Final polish, wraps sensitive values
+      ← Final polish, wraps sensitive values in .sensitive spans
 ```
 
-**All tasks modify only `index.html`.** Task 7b (pipeline change) is deferred.
+**Tasks 1-6 modify only `index.html`.** Task 7a modifies `n8n-workflow-v3.json` + `index.html` and requires n8n Cloud re-import. Task 7b (if needed) also modifies both.
 
 ---
 
 ## 5. Detailed Estimates
 
-| Task | Description | Lines of code | Time |
-|------|-------------|---------------|------|
-| 7a | Add `original_subject` to createTicketFromN8n | ~1 line | 2 min |
-| 1 | Ticket Detail Modal (HTML + CSS + JS) | ~120 lines | 60-90 min |
-| 4 | AI Pipeline Results Section (CSS + JS helper) | ~80 lines | 45-60 min |
-| 2 | Enhanced n8n Ticket Cards | ~60 lines | 45-60 min |
-| 5 | Clickable Ticket IDs | ~15 lines | 20-30 min |
-| 3 | Email Body Display (Option A) | ~10 lines | 15 min |
-| 6 | Privacy/Blur Toggle | ~30 lines | 20-30 min |
-| **Total** | | **~315 lines** | **3-4 hours** |
+| Task | Description | Lines of code | Time | Notes |
+|------|-------------|---------------|------|-------|
+| 7a | Add `original_subject` to pipeline + dashboard | ~2 lines + n8n re-import | 10 min | Pipeline change — must re-import JSON to n8n Cloud |
+| 1 | Ticket Detail Modal (HTML + CSS + JS + Escape key) | ~130 lines | 60-90 min | Includes row hover CSS, Escape handler |
+| 4 | AI Pipeline Results Section (CSS + JS helper) | ~80 lines | 45-60 min | Reusable `renderAIPipelineSection()` |
+| 2 | Enhanced n8n Ticket Cards | ~60 lines | 45-60 min | Uses modal + AI section from Tasks 1 & 4 |
+| 5 | Clickable Ticket IDs | ~15 lines | 20-30 min | Dashboard rows, activity log, n8n cards |
+| 3 | Email Body Display (Option A) | ~10 lines | 15 min | **Decision point:** if 200 chars looks thin, switch to Option B (+30 min) |
+| 6 | Privacy/Blur Toggle | ~30 lines | 20-30 min | PIN via btoa encoding, not plaintext |
+| **Total** | | **~325 lines** | **3-4.5 hours** | Upper bound includes Option B if needed |
 
 ---
 
@@ -555,7 +596,9 @@ Task 6 (Privacy/Blur Toggle)
 
 After implementation, verify:
 
+- [ ] Task 7a: new n8n ticket has `original_subject` field (send fresh test email after re-import)
 - [ ] Click TKT-010 on Dashboard → detail modal opens with all sections
+- [ ] Modal shows `original_subject` as header (fallback to company name for old tickets)
 - [ ] AI comparison card shows: Text AI (blue) + Vision AI (purple) side-by-side
 - [ ] AMOUNT_MISMATCH cross-validation result displayed correctly (25M vs 24,500)
 - [ ] Confidence bar shows 100% for TKT-010
@@ -565,6 +608,7 @@ After implementation, verify:
 - [ ] "View Details" button on n8n cards → opens detail modal
 - [ ] Activity log TKT-XXX links are clickable → opens detail modal
 - [ ] Finance page vision block matches new AI Pipeline section style
+- [ ] Escape key closes any open modal (ticket detail, demo, e-money success)
 - [ ] Privacy toggle: ON → emails/names blurred, OFF → prompt for PIN → reveal
 - [ ] Mobile responsive: detail modal scrollable, cards stack vertically
 - [ ] Ctrl+Shift+R reset still works (clears all data)
@@ -587,9 +631,22 @@ This is the difference between "it works" and "look how well it works."
 
 ## 9. Files Modified Summary
 
-| File | Changes |
-|------|---------|
-| `wave-emi-dashboard/index.html` | All UI/UX changes (Tasks 1-6, 7a) |
-| `wave-emi-dashboard/n8n-workflow-v3.json` | Only if Task 7b needed (deferred) |
+| File | Changes | n8n Action |
+|------|---------|------------|
+| `wave-emi-dashboard/index.html` | All UI/UX changes (Tasks 1-6, 7a dashboard side) | None |
+| `wave-emi-dashboard/n8n-workflow-v3.json` | Task 7a: add `original_subject` to ticket object in AI Parse & Validate v3 | **Re-import to n8n Cloud** |
+| `wave-emi-dashboard/n8n-workflow-v3.json` | Task 7b: add `email_body` (only if Option B triggered) | Re-import again |
 
 No new files created. No new dependencies. No build step.
+
+## 10. Implementation Notes (from review)
+
+These are awareness items for the build — not changes to the plan, but things to keep in mind:
+
+1. **`has_mismatch` field serves dual purpose.** For mock emails: `amount_requested !== amount_on_bank_slip`. For v3 vision tickets: `amount_requested !== amount_on_document` (the pipeline sets `amount_on_bank_slip = vision amount` for compatibility). In the modal, use the more specific fields (`amount_on_document`, `amount_on_bank_slip`) rather than relying solely on `has_mismatch`.
+
+2. **Existing tickets in localStorage won't have new fields.** After Task 7a, old tickets lack `original_subject`. All UI code must use safe fallbacks: `t.original_subject || t.company` for display, not bare `t.original_subject`.
+
+3. **Line numbers in this plan are approximate.** The codebase has shifted from prior edits. During execution, navigate by **function names and section comments** (e.g., `// ─── PAGE: DASHBOARD`, `function renderEmails()`, `function createTicketFromN8n()`) rather than line numbers.
+
+4. **n8n re-import workflow:** Edit JSON locally → push to GitHub → in n8n Cloud: delete old v3 workflow → Import from file → re-set Gmail OAuth2 credentials (2 nodes) + Groq API key (2 places) → verify code node modes → test. See `V3_DEPLOYMENT_GUIDE.md` Steps 4-5.

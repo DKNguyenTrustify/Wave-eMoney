@@ -220,6 +220,32 @@ textarea{resize:vertical;min-height:120px;}
 .modal h3{font-size:18px;font-weight:700;margin-bottom:10px;}
 .modal p{font-size:14px;color:var(--muted);margin-bottom:16px;line-height:1.6;}
 
+/* TICKET DETAIL MODAL */
+.detail-section{margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border);}
+.detail-section:last-child{border-bottom:none;padding-bottom:0;}
+.detail-section-title{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.ai-card{border-radius:var(--radius);padding:16px;border:1px solid var(--border);background:var(--surface);}
+.ai-card.text-ai{border-top:3px solid var(--blue);}
+.ai-card.vision-ai{border-top:3px solid #7c3aed;}
+.ai-card-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:12px;display:flex;align-items:center;gap:6px;}
+.ai-card.text-ai .ai-card-title{color:var(--blue);}
+.ai-card.vision-ai .ai-card-title{color:#7c3aed;}
+.ai-field{margin-bottom:10px;}
+.ai-field:last-child{margin-bottom:0;}
+.ai-field-label{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+.ai-field-value{font-size:14px;font-weight:600;margin-top:2px;}
+.confidence-bar{height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;margin-top:4px;}
+.confidence-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,#7c3aed,#a78bfa);transition:width .5s ease;}
+.cross-validation-box{margin-top:16px;padding:12px 16px;border-radius:var(--radius);font-size:13px;font-weight:600;display:flex;align-items:flex-start;gap:8px;}
+.cross-validation-box.match{background:#dcfce7;color:#166534;border:1px solid #bbf7d0;}
+.cross-validation-box.mismatch{background:#fef3c7;color:#92400e;border:1px solid #fde68a;}
+.cross-validation-box.no-vision{background:#f1f5f9;color:var(--muted);border:1px solid var(--border);}
+.n8n-ticket-card{border-left:4px solid #FF6D5A;background:var(--surface);border-radius:0 var(--radius) var(--radius) 0;padding:16px 20px;margin-bottom:12px;border:1px solid var(--border);border-left:4px solid #FF6D5A;cursor:pointer;transition:box-shadow var(--transition-fast);}
+.n8n-ticket-card:hover{box-shadow:var(--shadow-md);}
+.privacy-mode .sensitive{filter:blur(5px);user-select:none;pointer-events:none;}
+@media(max-width:700px){.detail-grid{grid-template-columns:1fr;}}
+
 /* TOAST */
 #toast{position:fixed;bottom:28px;right:28px;padding:14px 22px 14px 18px;border-radius:12px;font-size:14px;font-weight:600;opacity:0;transform:translateY(16px);transition:all .35s cubic-bezier(.4,0,.2,1);z-index:300;pointer-events:none;max-width:420px;display:flex;align-items:center;gap:10px;}
 #toast.show{opacity:1;transform:translateY(0);}
@@ -360,6 +386,7 @@ textarea{resize:vertical;min-height:120px;}
       <option value="E-Money">E-Money</option>
     </select>
     <span class="nav-tag n8n-tag" title="n8n workflow automation connected">n8n</span>
+    <span class="nav-tag" id="privacy-toggle" onclick="togglePrivacy()" style="cursor:pointer" title="Toggle sensitive data blur">Private</span>
     <span class="nav-tag" onclick="document.getElementById('demo-modal').classList.add('open')">DEMO</span>
   </div>
 </nav>
@@ -401,6 +428,12 @@ textarea{resize:vertical;min-height:120px;}
     <h3>Case Closed Successfully</h3>
     <p>The disbursement for <strong id="modal-emoney-client"></strong> has been archived. The dashboard has been updated.</p>
     <button class="btn btn-primary" style="width:100%;" onclick="closeEmoneyModal()">Back to Dashboard</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="ticket-detail-modal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal" style="max-width:900px;max-height:90vh;overflow-y:auto">
+    <div id="ticket-detail-content"></div>
   </div>
 </div>
 
@@ -947,8 +980,8 @@ function renderDashboard(){
       } else if(t.vision_status && t.vision_status !== 'none'){
         visionCol = `<span style="color:#dc2626;font-size:11px">${t.vision_status}</span>`;
       }
-      html += `<tr>
-        <td><strong>${t.id}</strong>${n8nBadge}</td><td>${t.company}</td><td>${typeBadgeHtml(t.type)}</td>
+      html += `<tr onclick="openTicketDetail('${t.id}')" style="cursor:pointer">
+        <td><a href="#" onclick="openTicketDetail('${t.id}');event.stopPropagation();return false" style="color:var(--blue);text-decoration:none"><strong>${t.id}</strong></a>${n8nBadge}</td><td>${t.company}</td><td>${typeBadgeHtml(t.type)}</td>
         <td style="font-weight:700">${fmt(t.amount_requested)} MMK</td>
         <td>${visionCol}</td><td>${trackA}</td><td>${trackB}</td>
         <td>${statusBadgeHtml(t.status)}</td><td>${riskBadgeHtml(t.risk_level)}</td>
@@ -963,7 +996,8 @@ function renderDashboard(){
     html += '<div style="color:var(--muted);font-size:13px">No activity yet.</div>';
   } else {
     state.activityLog.slice(0,5).forEach(e => {
-      html += `<div class="activity-entry"><span class="activity-time">[${e.time}]</span>${e.message}</div>`;
+      const msg = e.message.replace(/(TKT-\d+)/g, '<a href="#" onclick="openTicketDetail(\'$1\');return false" style="color:var(--blue);font-weight:600;text-decoration:none">$1</a>');
+      html += `<div class="activity-entry"><span class="activity-time">[${e.time}]</span>${msg}</div>`;
     });
   }
   html += '</div></div>';
@@ -991,20 +1025,31 @@ function renderEmails(){
       <span style="color:var(--muted);font-size:13px;margin-left:8px">${n8nTickets.length} ticket(s) auto-created from email</span>
       <div style="margin-top:8px">`;
     n8nTickets.forEach(t => {
+      const subject = t.original_subject||t.company;
+      const dateStr = t.email_date ? new Date(t.email_date).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
       let visionBadge = '';
       if(t.vision_parsed){
         const conf = (t.vision_confidence*100).toFixed(0);
-        visionBadge = `<span style="background:#f5f3ff;color:#7c3aed;font-size:11px;padding:2px 6px;border-radius:4px;margin-left:4px;font-weight:600">\uD83D\uDC41 Vision ${conf}%</span>`;
-        if(t.amount_on_document && t.has_mismatch) visionBadge += `<span style="background:#fef3c7;color:#92400e;font-size:11px;padding:2px 6px;border-radius:4px;margin-left:4px">\u26A0 Doc: ${fmt(t.amount_on_document)} vs Email: ${fmt(t.amount_requested)}</span>`;
-        else if(t.amount_on_document) visionBadge += `<span style="background:#dcfce7;color:#166534;font-size:11px;padding:2px 6px;border-radius:4px;margin-left:4px">\u2713 Amount match</span>`;
+        visionBadge = `<span class="badge badge-purple">Vision ${conf}%</span>`;
       }
-      html += `<div style="font-size:13px;padding:6px 0;border-bottom:1px solid #f1f5f9">
-        <div>${t.id} \u00B7 ${t.company} \u00B7 ${fmt(t.amount_requested)} MMK \u00B7 ${statusBadgeHtml(t.status)}
-        ${t.has_attachments ? '<span style="background:#e0f2fe;color:#0369a1;font-size:11px;padding:2px 6px;border-radius:4px;margin-left:4px">\u{1F4CE} '+t.attachment_count+'</span>' : ''}${visionBadge}</div>
-        <div style="color:var(--muted);font-size:12px;margin-top:2px">
-          ${t.from_email ? 'From: '+t.from_email : ''}${t.to_email ? ' \u00B7 To: '+t.to_email : ''}${t.email_date ? ' \u00B7 '+t.email_date : ''}
-          ${t.attachment_names && t.attachment_names.length ? '<br>Files: '+t.attachment_names.join(', ') : ''}
-          ${t.vision_parsed && t.document_type ? '<br>Document: '+t.document_type+(t.document_signers&&t.document_signers.length?' \u00B7 Signers: '+t.document_signers.map(s=>s.name).join(', '):'') : ''}
+      html += `<div class="n8n-ticket-card" onclick="openTicketDetail('${t.id}')">
+        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px;flex-wrap:wrap;gap:6px">
+          <div><strong style="font-size:14px">${subject}</strong><br>
+            <span style="color:var(--muted);font-size:12px" class="sensitive">${t.from_email||''}</span>
+            <span style="color:var(--muted);font-size:12px">${dateStr?' &middot; '+dateStr:''}</span></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">${typeBadgeHtml(t.type)}
+            ${t.scenario&&t.scenario!=='NORMAL'?'<span class="badge badge-warn">'+t.scenario.replace(/_/g,' ')+'</span>':''}
+            ${visionBadge}
+            ${t.has_attachments?'<span class="badge badge-blue">Attach: '+t.attachment_count+'</span>':''}</div>
+        </div>
+        <div class="grid-2" style="margin-bottom:8px">
+          <div><span style="color:var(--muted);font-size:11px;text-transform:uppercase">Amount Requested</span><br><strong>${fmt(t.amount_requested)} MMK</strong></div>
+          <div><span style="color:var(--muted);font-size:11px;text-transform:uppercase">${t.vision_parsed?'Vision Document Amount':'Bank Slip Amount'}</span><br><strong>${fmt(t.amount_on_document||t.amount_on_bank_slip||0)} MMK</strong>${t.has_mismatch?' <span style="color:#92400e;font-size:11px">MISMATCH</span>':''}</div>
+        </div>
+        ${t.body_preview?'<div style="font-size:13px;color:var(--muted);margin-bottom:10px;font-style:italic">&ldquo;'+t.body_preview.substring(0,150)+(t.body_preview.length>150?'...':'')+' &rdquo;</div>':''}
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
+          <span style="color:var(--success);font-size:12px;font-weight:600">Parsed &rarr; ${t.id}</span>
+          <button class="btn btn-outline btn-sm" onclick="openTicketDetail('${t.id}');event.stopPropagation()">View Details</button>
         </div>
       </div>`;
     });
@@ -1282,30 +1327,21 @@ function renderFinance(){
     // Email metadata (n8n-sourced tickets)
     if(ticket.n8n_source && (ticket.from_email || ticket.to_email || ticket.email_date)){
       html += `<div style="font-size:12px;color:var(--muted);margin-bottom:12px;border-left:3px solid #FF6D5A;padding-left:8px">
-        ${ticket.from_email ? 'From: <strong>'+ticket.from_email+'</strong>' : ''}${ticket.to_email ? ' \u00B7 To: '+ticket.to_email : ''}
+        ${ticket.from_email ? 'From: <strong class="sensitive">'+ticket.from_email+'</strong>' : ''}${ticket.to_email ? ' &middot; To: <span class="sensitive">'+ticket.to_email+'</span>' : ''}
         ${ticket.email_date ? '<br>Date: '+ticket.email_date : ''}${ticket.thread_id ? ' \u00B7 Thread: '+ticket.thread_id : ''}
         ${ticket.has_attachments ? '<br>\u{1F4CE} Attachments: '+(ticket.attachment_names||[]).join(', ') : ''}
       </div>`;
     }
 
-    // v3: Vision results (only shows if vision was processed)
-    if(ticket.vision_parsed){
-      const conf = (ticket.vision_confidence*100).toFixed(0);
-      html += `<div style="font-size:12px;margin-bottom:12px;border-left:3px solid #7c3aed;padding:8px 8px 8px 10px;background:#f5f3ff;border-radius:0 6px 6px 0">
-        <strong style="color:#5b21b6">\uD83D\uDC41\uFE0F Vision AI</strong> &middot; ${ticket.document_type||'document'} &middot; Confidence: ${conf}%
-        ${ticket.amount_on_document ? (ticket.has_mismatch
-          ? '<br><span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:11px">\u26A0\uFE0F Mismatch: doc=' + fmt(ticket.amount_on_document) + ' vs email=' + fmt(ticket.amount_requested) + '</span>'
-          : '<br><span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:4px;font-size:11px">\u2705 Amount matches: ' + fmt(ticket.amount_on_document) + '</span>') : ''}
-        ${ticket.document_signers && ticket.document_signers.length ? '<br>Signers: ' + ticket.document_signers.map(s=>s.name+(s.role?' ('+s.role+')':'')).join(', ') : ''}
-      </div>`;
-    }
+    // v3: AI Pipeline Results (vision + text comparison)
+    if(ticket.n8n_source||ticket.ai_parsed) html += renderAIPipelineSection(ticket);
 
     // Authority matrix
     const matrix = checkAuthorityMatrix(ticket);
     html += `<strong style="font-size:13px">\uD83D\uDD10 Authority Matrix</strong>
       <table class="matrix-table" style="margin-top:6px"><thead><tr><th>Required</th><th>Email Found</th><th>Status</th></tr></thead><tbody>`;
     matrix.forEach(m => {
-      html += `<tr><td>${m.requiredRole}</td><td>${m.foundName}</td><td>${m.present?'\u2705 Present':'\u274C Missing'}</td></tr>`;
+      html += `<tr><td>${m.requiredRole}</td><td class="sensitive">${m.foundName}</td><td>${m.present?'\u2705 Present':'\u274C Missing'}</td></tr>`;
     });
     html += '</tbody></table>';
 
@@ -2145,6 +2181,7 @@ function createTicketFromN8n(data){
     sent_to_checker:false,
     n8n_source:true, n8n_parsed_at:data.parsed_at||nowTs(),
     body_preview:data.body_preview||'',
+    original_subject:data.original_subject||'',
     // Email metadata (v2)
     from_email:data.from_email||'',
     to_email:data.to_email||'',
@@ -2171,9 +2208,129 @@ function createTicketFromN8n(data){
   showToast(tid+' created automatically via n8n', 'success');
 }
 
+// ─── PRIVACY TOGGLE ──────────────────────────────────────────────────────────
+let privacyMode = false;
+function togglePrivacy(){
+  if(privacyMode){
+    const pin = prompt('Enter PIN to reveal:');
+    if(!pin||btoa(pin)!=='MTIzNA==') return;
+  }
+  privacyMode = !privacyMode;
+  document.body.classList.toggle('privacy-mode', privacyMode);
+  document.getElementById('privacy-toggle').textContent = privacyMode ? 'Visible' : 'Private';
+  showPage(currentPage);
+}
+
+// ─── AI PIPELINE RESULTS & TICKET DETAIL MODAL ──────────────────────────────
+
+function renderAIPipelineSection(t){
+  let html = '<div class="detail-section"><div class="detail-section-title">AI Pipeline Analysis</div>';
+  const approversList = (t.email_approvals||t.approvals||[]).map(a=>'&#10003; '+a.role).join('<br>')||'None found';
+  if(t.vision_parsed){
+    const conf = (t.vision_confidence*100).toFixed(0);
+    html += '<div class="detail-grid">';
+    html += `<div class="ai-card text-ai"><div class="ai-card-title">Text Extraction<br><span style="font-weight:400;font-size:10px;text-transform:none;letter-spacing:0">Groq llama-3.3-70b</span></div>
+      <div class="ai-field"><div class="ai-field-label">Company</div><div class="ai-field-value">${t.company}</div></div>
+      <div class="ai-field"><div class="ai-field-label">Amount</div><div class="ai-field-value">${fmt(t.amount_requested)} MMK</div></div>
+      <div class="ai-field"><div class="ai-field-label">Type</div><div class="ai-field-value">${t.type}</div></div>
+      <div class="ai-field"><div class="ai-field-label">Approvers</div><div class="ai-field-value">${approversList}</div></div>
+    </div>`;
+    html += `<div class="ai-card vision-ai"><div class="ai-card-title">Document Vision<br><span style="font-weight:400;font-size:10px;text-transform:none;letter-spacing:0">Groq llama-4-scout</span></div>
+      <div class="ai-field"><div class="ai-field-label">Document Type</div><div class="ai-field-value">${t.document_type||'Unknown'}</div></div>
+      <div class="ai-field"><div class="ai-field-label">Amount on Document</div><div class="ai-field-value">${t.amount_on_document?fmt(t.amount_on_document)+' MMK':'N/A'}${t.has_mismatch?' <span style="color:#92400e">MISMATCH</span>':''}</div></div>
+      <div class="ai-field"><div class="ai-field-label">Confidence</div><div class="confidence-bar"><div class="confidence-fill" style="width:${conf}%"></div></div><div style="font-size:12px;margin-top:2px;color:#7c3aed;font-weight:600">${conf}%</div></div>
+      <div class="ai-field"><div class="ai-field-label">Signers on Document</div><div class="ai-field-value">${(t.document_signers||[]).map(s=>s.name+(s.role?' ('+s.role+')':'')).join(', ')||'None found'}</div></div>
+    </div>`;
+    html += '</div>';
+    if(t.has_mismatch) html += `<div class="cross-validation-box mismatch">AMOUNT MISMATCH &mdash; Email says ${fmt(t.amount_requested)} MMK but document shows ${fmt(t.amount_on_document)} MMK. Flagged for human review.</div>`;
+    else if(t.amount_on_document) html += `<div class="cross-validation-box match">Amount verified &mdash; Email (${fmt(t.amount_requested)} MMK) matches document (${fmt(t.amount_on_document)} MMK).</div>`;
+  } else {
+    html += '<div class="detail-grid">';
+    html += `<div class="ai-card text-ai"><div class="ai-card-title">Text Extraction<br><span style="font-weight:400;font-size:10px;text-transform:none;letter-spacing:0">Groq llama-3.3-70b</span></div>
+      <div class="ai-field"><div class="ai-field-label">Company</div><div class="ai-field-value">${t.company}</div></div>
+      <div class="ai-field"><div class="ai-field-label">Amount</div><div class="ai-field-value">${fmt(t.amount_requested)} MMK</div></div>
+      <div class="ai-field"><div class="ai-field-label">Type</div><div class="ai-field-value">${t.type}</div></div>
+      <div class="ai-field"><div class="ai-field-label">Approvers</div><div class="ai-field-value">${approversList}</div></div>
+    </div>`;
+    html += `<div class="ai-card vision-ai" style="opacity:.5;display:flex;align-items:center;justify-content:center;text-align:center">
+      <div><div style="font-size:24px;margin-bottom:8px">&#128065;</div><div style="font-size:13px;color:var(--muted)">Vision AI: Not processed<br><span style="font-size:11px">${t.vision_status&&t.vision_status!=='none'?t.vision_status:'No attachment'}</span></div></div>
+    </div>`;
+    html += '</div>';
+    html += '<div class="cross-validation-box no-vision">Vision AI was not processed for this ticket &mdash; no attachment was provided or the email was processed with v2 pipeline.</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+function openTicketDetail(ticketId){
+  const t = state.tickets[ticketId];
+  if(!t) return;
+  const container = document.getElementById('ticket-detail-content');
+  const subject = t.original_subject||t.company;
+  let html = '';
+
+  // Header
+  html += `<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+    <div><h3 style="margin:0">${t.id} &middot; ${subject}</h3>
+      <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+        ${typeBadgeHtml(t.type)} ${riskBadgeHtml(t.risk_level)}
+        ${t.scenario&&t.scenario!=='NORMAL'?'<span class="badge badge-warn">'+t.scenario.replace(/_/g,' ')+'</span>':''}
+        ${t.n8n_source?'<span style="background:#FF6D5A;color:#fff;font-size:11px;padding:3px 8px;border-radius:4px;font-weight:700">n8n</span>':''}
+        ${t.vision_parsed?'<span class="badge badge-purple">Vision '+(t.vision_confidence*100).toFixed(0)+'%</span>':''}
+      </div>
+    </div>
+    <button class="btn btn-ghost btn-sm" onclick="document.getElementById('ticket-detail-modal').classList.remove('open')" style="font-size:20px;padding:4px 8px">&times;</button>
+  </div>`;
+
+  // AI Pipeline Results
+  if(t.n8n_source||t.ai_parsed) html += renderAIPipelineSection(t);
+
+  // Email Source
+  if(t.n8n_source){
+    html += '<div class="detail-section"><div class="detail-section-title">Email Source</div><div style="font-size:13px">';
+    if(t.from_email) html += `<div style="margin-bottom:4px"><span class="sensitive">${t.from_email}</span> &rarr; <span class="sensitive">${t.to_email||'N/A'}</span></div>`;
+    if(t.email_date) html += `<div style="margin-bottom:4px;color:var(--muted)">Date: ${t.email_date}${t.thread_id?' &middot; Thread: '+t.thread_id:''}</div>`;
+    if(t.original_subject) html += `<div style="margin-bottom:4px"><strong>Subject:</strong> ${t.original_subject}</div>`;
+    if(t.body_preview) html += `<div style="margin-top:8px;padding:10px 12px;background:var(--bg);border-radius:8px;font-style:italic;color:var(--muted);font-size:13px;line-height:1.5">&ldquo;${t.body_preview}&rdquo;</div>`;
+    if(t.has_attachments) html += `<div style="margin-top:8px">Attachments: ${(t.attachment_names||[]).join(', ')||t.attachment_count+' file(s)'}</div>`;
+    html += '</div></div>';
+  }
+
+  // Authority Matrix
+  html += '<div class="detail-section"><div class="detail-section-title">Authority Matrix</div>';
+  const approvals = t.email_approvals||[];
+  const required = t.required_approvals||['Sales HOD','Finance Manager'];
+  html += '<table class="matrix-table"><thead><tr><th>Required</th><th>Found</th><th>Status</th></tr></thead><tbody>';
+  required.forEach(function(req){
+    const found = approvals.find(a=>a.role&&a.role.toLowerCase().includes(req.toLowerCase()));
+    html += `<tr><td>${req}</td><td class="sensitive">${found?found.name:'&mdash;'}</td><td>${found?'&#10003; Present':'&#10007; Missing'}</td></tr>`;
+  });
+  html += '</tbody></table></div>';
+
+  // Processing Status
+  html += '<div class="detail-section"><div class="detail-section-title">Processing Status</div>';
+  const trackA = t.prechecks_done?'<span style="color:#16a34a;font-weight:600">&#10003; Done</span>':'<span style="color:#856404;font-weight:600">Pending</span>';
+  let trackB = '<span style="color:#856404;font-weight:600">Pending</span>';
+  if(t.finance_status==='APPROVED') trackB = '<span style="color:#16a34a;font-weight:600">&#10003; Approved</span>';
+  else if(t.finance_status==='REJECTED') trackB = '<span style="color:#dc2626;font-weight:600">&#10007; Rejected</span>';
+  html += `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;font-size:13px">
+    <div><strong>Track A (Pre-checks):</strong><br>${trackA}</div>
+    <div><strong>Track B (Finance):</strong><br>${trackB}</div>
+    <div><strong>Status:</strong><br>${statusBadgeHtml(t.status)}</div>
+  </div>`;
+  html += `<div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px">
+    <div style="background:var(--bg);padding:10px;border-radius:8px"><span style="color:var(--muted);font-size:11px;text-transform:uppercase">Amount Requested</span><br><strong style="font-size:16px">${fmt(t.amount_requested)} MMK</strong></div>
+    <div style="background:var(--bg);padding:10px;border-radius:8px"><span style="color:var(--muted);font-size:11px;text-transform:uppercase">Bank Slip Amount</span><br><strong style="font-size:16px">${fmt(t.amount_on_bank_slip||0)} MMK</strong></div>
+  </div></div>`;
+
+  container.innerHTML = html;
+  document.getElementById('ticket-detail-modal').classList.add('open');
+}
+
 // ─── KEYBOARD SHORTCUT ────────────────────────────────────────────────────────
 document.addEventListener('keydown', function(e){
   if(e.ctrlKey && e.shiftKey && e.key === 'R'){ e.preventDefault(); resetDemo(); }
+  if(e.key === 'Escape') document.querySelectorAll('.modal-overlay.open').forEach(function(m){m.classList.remove('open');});
 });
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
