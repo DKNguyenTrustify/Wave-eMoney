@@ -22,7 +22,9 @@
       "parameters": {
         "simple": false,
         "filters": {},
-        "downloadAttachments": true
+        "options": {
+          "downloadAttachments": true
+        }
       },
       "id": "gmail-trigger",
       "name": "Gmail Trigger",
