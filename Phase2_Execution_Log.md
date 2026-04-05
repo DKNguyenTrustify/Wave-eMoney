@@ -97,10 +97,50 @@
 
 ---
 
+## Post-Deploy Fixes (April 5, 2026)
+
+### Encoding Bug Fix (deployed April 5)
+- **Root cause:** `atob()` in browsers decodes base64 to Latin-1, not UTF-8. Em dashes (`—`) and other multi-byte Unicode characters in body_preview were rendering as `â□□`.
+- **Fix:** Replaced `JSON.parse(atob(encoded))` with `JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(encoded), c => c.charCodeAt(0))))` in `checkN8nWebhook()`.
+- **Impact:** Fixes ALL non-ASCII characters in ticket data flowing from n8n pipeline.
+
+---
+
+## Pre-Demo Polish (April 5, 2026)
+
+### Tier 1: Safe Polish (all deployed)
+
+| # | Change | Type | Lines changed |
+|---|--------|------|---------------|
+| 1 | **Nav bar gradient** — `linear-gradient(135deg, #001E4E, #002a6b)` replaces flat navy | CSS | 1 line |
+| 2 | **Ticket table zebra stripes** — even rows get `#f8fafc` background | CSS | 2 lines |
+| 3 | **Modal close button hover** — circular hover state on X button | CSS | 1 line |
+| 4 | **Finance page clickable ticket ID** — TKT-XXX wrapped in blue `<a>` link → opens detail modal | JS | 1 line |
+| 5 | **Activity log "Show all" expander** — if >5 entries, shows expandable section using existing `.expander-toggle` pattern | JS | 7 lines |
+
+### Tier 2: Polish with higher demo impact (all deployed)
+
+| # | Change | Type | Lines changed |
+|---|--------|------|---------------|
+| 6 | **Stat card count-up animation** — numbers animate 0→target with ease-out cubic (600ms) on dashboard load/visit | JS | 12 lines |
+| 7 | **n8n card authority matrix** — compact matrix table (Sales HOD + Finance Manager status) on Incoming Emails n8n ticket cards, using existing `checkAuthorityMatrix()` | JS | 6 lines |
+
+### Summary
+
+| Metric | Value |
+|--------|-------|
+| Lines before (post-Phase 2) | 2,358 |
+| Lines after polish | 2,391 |
+| Lines added | ~33 |
+| Risk level | Zero (CSS) to Low (JS) |
+| New functions | 0 |
+| Files modified | 1 (`index.html`) |
+
+---
+
 ## Remaining Actions
 
-1. **Re-import `n8n-workflow-v3.json` to n8n Cloud** — Required for Task 7a to take effect on new emails.
-2. **Send test email** — Verify `original_subject` arrives in dashboard after re-import.
-3. **Visual QA** — Open dashboard, click tickets, verify modal renders correctly.
-4. **Git push** — Push to GitHub for Vercel auto-deploy.
-5. **Update ImplementationPlan_Phase2.md** — Mark tasks as completed.
+1. ~~Re-import `n8n-workflow-v3.json` to n8n Cloud~~ — DONE (April 5)
+2. ~~Send test email~~ — DONE (verified pipeline + encoding fix)
+3. **Visual QA on production** — Walk through full demo flow after Vercel deploy
+4. **Ctrl+Shift+R reset** — Clear old localStorage data, re-trigger test email to verify clean state

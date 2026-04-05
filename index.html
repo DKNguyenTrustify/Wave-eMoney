@@ -22,7 +22,7 @@
 body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
 
 /* NAV */
-nav{background:var(--navy);padding:0 32px;display:flex;align-items:center;justify-content:space-between;height:60px;position:sticky;top:0;z-index:100;box-shadow:0 2px 16px rgba(0,0,0,.3);}
+nav{background:linear-gradient(135deg,#001E4E 0%,#002a6b 100%);padding:0 32px;display:flex;align-items:center;justify-content:space-between;height:60px;position:sticky;top:0;z-index:100;box-shadow:0 2px 16px rgba(0,0,0,.3);}
 .nav-logo{display:flex;align-items:center;gap:10px;color:#fff;font-weight:700;font-size:16px;white-space:nowrap;}
 .nav-logo span{background:var(--accent);color:var(--navy);border-radius:6px;padding:2px 8px;font-size:13px;font-weight:800;}
 .nav-links{display:flex;gap:4px;}
@@ -111,6 +111,7 @@ main{max-width:1100px;margin:0 auto;padding:28px 24px;}
 .btn-success{background:var(--success);color:#fff;box-shadow:0 2px 8px rgba(22,163,74,.25);}.btn-success:hover{background:#15803d;box-shadow:0 4px 16px rgba(22,163,74,.3);transform:translateY(-1px);}
 .btn-outline{background:#fff;color:var(--blue);border:1.5px solid var(--blue);box-shadow:none;}.btn-outline:hover{background:#eff6ff;box-shadow:var(--shadow-sm);}
 .btn-ghost{background:transparent;color:var(--muted);box-shadow:none;}.btn-ghost:hover{background:var(--bg);}
+.modal .btn-ghost.btn-sm:hover{background:rgba(0,0,0,.08);border-radius:50%;width:36px;height:36px;display:inline-flex;align-items:center;justify-content:center;}
 .btn-danger{background:var(--danger);color:#fff;box-shadow:0 2px 8px rgba(220,38,38,.25);}.btn-danger:hover{background:#b91c1c;box-shadow:0 4px 16px rgba(220,38,38,.3);transform:translateY(-1px);}
 .btn-sm{padding:7px 14px;font-size:13px;}
 .btn-group{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap;}
@@ -145,6 +146,8 @@ textarea{resize:vertical;min-height:120px;}
 .ticket-table td{padding:12px 16px;border-bottom:1px solid var(--border);vertical-align:middle;}
 .ticket-table tr{transition:background var(--transition-fast);}
 .ticket-table tr:hover td{background:#f1f5ff;}
+.ticket-table tbody tr:nth-child(even) td{background:#f8fafc;}
+.ticket-table tbody tr:nth-child(even):hover td{background:#f1f5ff;}
 .ticket-table td:first-child{font-weight:600;}
 
 .matrix-table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:12px;}
@@ -999,10 +1002,35 @@ function renderDashboard(){
       const msg = e.message.replace(/(TKT-\d+)/g, '<a href="#" onclick="openTicketDetail(\'$1\');return false" style="color:var(--blue);font-weight:600;text-decoration:none">$1</a>');
       html += `<div class="activity-entry"><span class="activity-time">[${e.time}]</span>${msg}</div>`;
     });
+    if(state.activityLog.length > 5){
+      html += `<div class="expander-toggle" onclick="this.style.display='none';this.nextElementSibling.classList.add('open')">Show all ${state.activityLog.length} entries &#9662;</div><div class="expander-body">`;
+      state.activityLog.slice(5).forEach(e => {
+        const msg = e.message.replace(/(TKT-\d+)/g, '<a href="#" onclick="openTicketDetail(\'$1\');return false" style="color:var(--blue);font-weight:600;text-decoration:none">$1</a>');
+        html += `<div class="activity-entry"><span class="activity-time">[${e.time}]</span>${msg}</div>`;
+      });
+      html += '</div>';
+    }
   }
   html += '</div></div>';
 
   el.innerHTML = html;
+
+  // Stat card count-up animation
+  try {
+    el.querySelectorAll('.stat-value').forEach(function(sv){
+      var target = parseInt(sv.textContent, 10);
+      if(isNaN(target) || target === 0) return;
+      sv.textContent = '0';
+      var duration = 600, start = performance.now();
+      function step(now){
+        var t = Math.min((now - start) / duration, 1);
+        var eased = 1 - Math.pow(1 - t, 3);
+        sv.textContent = Math.round(eased * target);
+        if(t < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    });
+  } catch(e){}
 }
 
 // ─── PAGE: INCOMING EMAILS ────────────────────────────────────────────────────
@@ -1046,6 +1074,13 @@ function renderEmails(){
           <div><span style="color:var(--muted);font-size:11px;text-transform:uppercase">Amount Requested</span><br><strong>${fmt(t.amount_requested)} MMK</strong></div>
           <div><span style="color:var(--muted);font-size:11px;text-transform:uppercase">${t.vision_parsed?'Vision Document Amount':'Bank Slip Amount'}</span><br><strong>${fmt(t.amount_on_document||t.amount_on_bank_slip||0)} MMK</strong>${t.has_mismatch?' <span style="color:#92400e;font-size:11px">MISMATCH</span>':''}</div>
         </div>
+        ${(function(){
+          var mx = checkAuthorityMatrix(t);
+          if(!mx||!mx.length) return '';
+          var h = '<div style="margin-bottom:8px"><strong style="font-size:12px;color:var(--muted)">Authority Matrix</strong><table class="matrix-table" style="margin-top:4px;font-size:12px"><tbody>';
+          mx.forEach(function(m){ h += '<tr><td>'+m.requiredRole+'</td><td class="sensitive">'+m.foundName+'</td><td>'+(m.present?'&#10003;':'&#10007;')+'</td></tr>'; });
+          return h + '</tbody></table></div>';
+        })()}
         ${t.body_preview?'<div style="font-size:13px;color:var(--muted);margin-bottom:10px;font-style:italic">&ldquo;'+t.body_preview.substring(0,150)+(t.body_preview.length>150?'...':'')+' &rdquo;</div>':''}
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
           <span style="color:var(--success);font-size:12px;font-weight:600">Parsed &rarr; ${t.id}</span>
@@ -1320,7 +1355,7 @@ function renderFinance(){
 
   pending.forEach(ticket => {
     const tid = ticket.id;
-    html += `<div class="card"><div class="card-header"><div class="card-title">${tid} \u00B7 ${ticket.company} \u00B7 ${typeBadgeHtml(ticket.type)}</div>${riskBadgeHtml(ticket.risk_level)}</div><div class="card-body">`;
+    html += `<div class="card"><div class="card-header"><div class="card-title"><a href="#" onclick="openTicketDetail('${tid}');event.stopPropagation();return false" style="color:var(--blue);text-decoration:none">${tid}</a> \u00B7 ${ticket.company} \u00B7 ${typeBadgeHtml(ticket.type)}</div>${riskBadgeHtml(ticket.risk_level)}</div><div class="card-body">`;
 
     html += `<div style="font-size:15px;font-weight:700;margin-bottom:16px">Requested: ${fmt(ticket.amount_requested)} MMK</div>`;
 
