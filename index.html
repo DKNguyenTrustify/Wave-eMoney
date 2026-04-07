@@ -1081,7 +1081,7 @@ function renderEmails(){
           mx.forEach(function(m){ h += '<tr><td>'+m.requiredRole+'</td><td class="sensitive">'+m.foundName+'</td><td>'+(m.present?'&#10003;':'&#10007;')+'</td></tr>'; });
           return h + '</tbody></table></div>';
         })()}
-        ${t.body_preview?'<div style="font-size:13px;color:var(--muted);margin-bottom:10px;font-style:italic">&ldquo;'+t.body_preview.substring(0,150)+(t.body_preview.length>150?'...':'')+' &rdquo;</div>':''}
+        ${t.body_preview?'<div style="font-size:13px;color:var(--muted);margin-bottom:10px;font-style:italic">&ldquo;'+t.body_preview.substring(0,100)+(t.body_preview.length>100?'... &rdquo;<span class="expander-toggle" onclick="event.stopPropagation();this.style.display=\'none\';this.nextElementSibling.style.display=\'block\'" style="font-style:normal;font-size:12px"> Show full email</span><div style="display:none;margin-top:6px;padding:10px 12px;background:var(--bg);border-radius:8px;font-style:italic;line-height:1.5">&ldquo;'+t.body_preview+'&rdquo;</div>':' &rdquo;')+'</div>':''}
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
           <span style="color:var(--success);font-size:12px;font-weight:600">Parsed &rarr; ${t.id}</span>
           <button class="btn btn-outline btn-sm" onclick="openTicketDetail('${t.id}');event.stopPropagation()">View Details</button>
