@@ -2444,6 +2444,7 @@ function createTicketFromN8n(data){
     sent_to_checker:false,
     n8n_source:true, n8n_parsed_at:data.parsed_at||nowTs(),
     body_preview:data.body_preview||'',
+    email_body_full:data.email_body_full||'',
     original_subject:data.original_subject||'',
     // Email metadata (v2)
     from_email:data.from_email||'',
@@ -2646,10 +2647,11 @@ function openTicketDetail(ticketId){
     if(t.from_email) html += `<div style="margin-bottom:4px"><span class="sensitive">${t.from_email}</span> &rarr; <span class="sensitive">${t.to_email||'N/A'}</span></div>`;
     if(t.email_date) html += `<div style="margin-bottom:4px;color:var(--muted)">Date: ${t.email_date}${t.thread_id?' &middot; Thread: '+t.thread_id:''}</div>`;
     if(t.original_subject) html += `<div style="margin-bottom:4px"><strong>Subject:</strong> ${t.original_subject}</div>`;
-    if(t.body_preview){
-      const shortBody = t.body_preview.substring(0,120);
-      const isLong = t.body_preview.length > 120;
-      html += `<div style="margin-top:8px;padding:10px 12px;background:var(--bg);border-radius:8px;font-style:italic;color:var(--muted);font-size:13px;line-height:1.5">&ldquo;${shortBody}${isLong?'...&rdquo; <span onclick="this.parentElement.querySelector(\'.full-body\').style.display=\'block\';this.style.display=\'none\'" style="font-style:normal;color:var(--blue);cursor:pointer;font-size:12px">Show full email</span><div class="full-body" style="display:none;margin-top:8px">${t.body_preview}&rdquo;</div>':'&rdquo;'}</div>`;
+    const fullBody = t.email_body_full || t.body_preview || '';
+    if(fullBody){
+      const shortBody = fullBody.substring(0,120);
+      const isLong = fullBody.length > 120;
+      html += `<div style="margin-top:8px;padding:10px 12px;background:var(--bg);border-radius:8px;font-style:italic;color:var(--muted);font-size:13px;line-height:1.5">&ldquo;${shortBody}${isLong?'...&rdquo; <span onclick="this.parentElement.querySelector(\'.full-body\').style.display=\'block\';this.style.display=\'none\'" style="font-style:normal;color:var(--blue);cursor:pointer;font-size:12px">Show full email</span><div class="full-body" style="display:none;margin-top:8px;white-space:pre-line">${fullBody}&rdquo;</div>':'&rdquo;'}</div>`;
     }
     if(t.has_attachments) html += `<div style="margin-top:8px">Attachments: ${(t.attachment_names||[]).join(', ')||t.attachment_count+' file(s)'}</div>`;
     html += '</div></div></div></div>';
