@@ -1107,7 +1107,7 @@ function renderEmails(){
           var cleanedCount = processed.filter(function(r){return r.Name_Changed;}).length;
           var empConf = t.employee_extraction_confidence ? (t.employee_extraction_confidence*100).toFixed(0) : null;
           html += `<div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px" onclick="event.stopPropagation()">`;
-          if(empConf) html += `<div style="margin-bottom:8px"><span class="badge badge-purple">Auto-Extracted from Email</span><span style="color:var(--muted);font-size:12px;margin-left:6px">Confidence: ${empConf}% &middot; ${processed.length} employees &middot; Review before submitting</span></div>`;
+          if(empConf) html += `<div style="margin-bottom:8px"><span class="badge badge-purple">Auto-Extracted from Email</span><span style="color:var(--muted);font-size:12px;margin-left:6px">Extraction: ${empConf}% &middot; ${processed.length} employees &middot; Review before submitting</span></div>`;
           html += `<strong style="font-size:12px">&#128202; ${processed.length} records &middot; ${invalidCount} invalid phone/account &middot; ${cleanedCount} names cleaned</strong>`;
           html += '<div style="max-height:200px;overflow-y:auto;margin-top:6px"><table class="csv-table"><thead><tr><th>Name</th><th>Cleaned</th><th>Phone/Acct</th><th>Status</th><th>Amount</th></tr></thead><tbody>';
           processed.forEach(function(r){ html += '<tr class="'+(r.MSISDN_Valid?'':'invalid')+'"><td>'+r.Original_Name+'</td><td>'+r.Cleaned_Name+'</td><td>'+r.MSISDN+'</td><td>'+r.Validation_Status+'</td><td>'+fmt(r.Amount)+'</td></tr>'; });
@@ -1359,7 +1359,7 @@ async function handlePayrollImageExtraction(file, emailId, ticketId){
     var cleanedCount = processed.filter(function(r){return r.Name_Changed;}).length;
     var total = processed.reduce(function(s,r){return s+r.Amount;},0);
     var conf = result.confidence?(result.confidence*100).toFixed(0):'?';
-    var preview = '<div style="margin-top:12px"><span class="badge badge-purple">AI Extracted</span><span style="color:var(--muted);font-size:12px;margin-left:6px">Confidence: '+conf+'% &middot; '+processed.length+' employees</span></div>';
+    var preview = '<div style="margin-top:12px"><span class="badge badge-purple">AI Extracted</span><span style="color:var(--muted);font-size:12px;margin-left:6px">Extraction: '+conf+'% &middot; '+processed.length+' employees</span></div>';
     preview += '<div style="margin-top:8px"><strong>&#128202; '+processed.length+' records &middot; '+invalidCount+' invalid &middot; '+cleanedCount+' names cleaned</strong></div>';
     preview += '<div style="max-height:300px;overflow-y:auto;margin-top:8px"><table class="csv-table"><thead><tr><th>Original Name</th><th>Cleaned Name</th><th>Phone/Acct</th><th>Status</th><th>Amount</th></tr></thead><tbody>';
     processed.forEach(function(r){preview+='<tr class="'+(r.MSISDN_Valid?'':'invalid')+'"><td>'+r.Original_Name+'</td><td>'+r.Cleaned_Name+'</td><td>'+r.MSISDN+'</td><td>'+r.Validation_Status+'</td><td>'+fmt(r.Amount)+'</td></tr>';});
@@ -2575,6 +2575,22 @@ function openTicketDetail(ticketId){
     }
   }
 
+  // Mismatch Action — Return for Correction (Minh: bank shouldn't fix client's error)
+  if(t.scenario === 'AMOUNT_MISMATCH' && !t.prechecks_done){
+    html += `<div style="background:#fee2e2;border:2px solid var(--danger);border-radius:8px;padding:16px;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+        <div>
+          <strong style="color:var(--danger)">Action Required</strong>
+          <div style="font-size:13px;color:var(--text);margin-top:4px">The amounts do not match. Return to the client for correction, or override to continue processing.</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn" style="background:var(--danger);color:#fff;font-size:13px" onclick="var subj='Re: ${(t.original_subject||t.company).replace(/'/g,"\\'")} — Amount Discrepancy';var body='Dear Client,%0A%0AWe detected a discrepancy in your disbursement request:%0A- Your email requests: ${fmt(t.amount_requested)} MMK%0A- Your attached document shows: ${fmt(t.amount_on_document||0)} MMK%0A%0APlease verify and resubmit with matching amounts.%0A%0ABest regards,%0AWave Money Operations';window.open('mailto:${t.from_email||""}?subject='+encodeURIComponent(subj)+'&body='+body)">Return for Correction</button>
+          <button class="btn btn-outline" style="font-size:13px;color:var(--muted)" onclick="this.parentElement.parentElement.parentElement.style.display='none'">Override &amp; Continue</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
   // Employee List — COLLAPSED but with upload+submit (Vinh: Dashboard should do everything)
   if(t.n8n_source||t.ai_parsed){
     const hasEmployees = (t.extracted_employees && t.extracted_employees.length > 0) || (t.employee_data && t.employee_data.length > 0);
@@ -2584,7 +2600,7 @@ function openTicketDetail(ticketId){
     if(hasEmployees){
       // Show extracted employee table
       const empConf = t.employee_extraction_confidence ? (t.employee_extraction_confidence*100).toFixed(0) : null;
-      if(empConf) html += '<div style="margin-bottom:8px"><span class="badge badge-purple">Auto-Extracted from Email</span><span style="color:var(--muted);font-size:12px;margin-left:6px">Confidence: '+empConf+'%</span></div>';
+      if(empConf) html += '<div style="margin-bottom:8px"><span class="badge badge-purple">Auto-Extracted from Email</span><span style="color:var(--muted);font-size:12px;margin-left:6px">Extraction: '+empConf+'%</span></div>';
       html += '<div style="max-height:250px;overflow-y:auto"><table class="csv-table"><thead><tr><th>Name</th><th>Phone/Acct</th><th>Amount</th></tr></thead><tbody>';
       empData.forEach(function(e){
         const name = e.name || e.Cleaned_Name || e.Original_Name || '';
@@ -2593,6 +2609,14 @@ function openTicketDetail(ticketId){
         html += '<tr><td>'+name+'</td><td>'+phone+'</td><td>'+fmt(amt)+'</td></tr>';
       });
       html += '</tbody></table></div>';
+    }
+    // 3-way Amount Check (reuse reconcileAmounts)
+    if(hasEmployees){
+      const empForReconcile = empData.map(function(e){ return {Amount: e.amount||e.Amount||0}; });
+      const recChecks = reconcileAmounts(t, empForReconcile);
+      html += '<div class="amounts-check" style="margin-top:12px"><strong style="font-size:13px;display:block;margin-bottom:8px">Amount Check</strong>';
+      recChecks.forEach(function(chk){ html += '<div class="ac-row"><span class="ac-icon">'+reconcileIcon(chk.status)+'</span><span class="ac-label">'+chk.check+'</span><span class="ac-detail">'+chk.detail+'</span></div>'; });
+      html += '</div>';
     }
     // Upload zone — always show (user can upload/replace)
     if(!t.prechecks_done){
@@ -2622,7 +2646,11 @@ function openTicketDetail(ticketId){
     if(t.from_email) html += `<div style="margin-bottom:4px"><span class="sensitive">${t.from_email}</span> &rarr; <span class="sensitive">${t.to_email||'N/A'}</span></div>`;
     if(t.email_date) html += `<div style="margin-bottom:4px;color:var(--muted)">Date: ${t.email_date}${t.thread_id?' &middot; Thread: '+t.thread_id:''}</div>`;
     if(t.original_subject) html += `<div style="margin-bottom:4px"><strong>Subject:</strong> ${t.original_subject}</div>`;
-    if(t.body_preview) html += `<div style="margin-top:8px;padding:10px 12px;background:var(--bg);border-radius:8px;font-style:italic;color:var(--muted);font-size:13px;line-height:1.5">&ldquo;${t.body_preview}&rdquo;</div>`;
+    if(t.body_preview){
+      const shortBody = t.body_preview.substring(0,120);
+      const isLong = t.body_preview.length > 120;
+      html += `<div style="margin-top:8px;padding:10px 12px;background:var(--bg);border-radius:8px;font-style:italic;color:var(--muted);font-size:13px;line-height:1.5">&ldquo;${shortBody}${isLong?'...&rdquo; <span onclick="this.parentElement.querySelector(\'.full-body\').style.display=\'block\';this.style.display=\'none\'" style="font-style:normal;color:var(--blue);cursor:pointer;font-size:12px">Show full email</span><div class="full-body" style="display:none;margin-top:8px">${t.body_preview}&rdquo;</div>':'&rdquo;'}</div>`;
+    }
     if(t.has_attachments) html += `<div style="margin-top:8px">Attachments: ${(t.attachment_names||[]).join(', ')||t.attachment_count+' file(s)'}</div>`;
     html += '</div></div></div></div>';
   }
