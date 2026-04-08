@@ -1,0 +1,63 @@
+%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#001E4E', 'primaryTextColor': '#fff', 'primaryBorderColor': '#0057B8', 'lineColor': '#0057B8', 'secondaryColor': '#f0f9ff', 'tertiaryColor': '#dcfce7', 'fontSize': '14px'}}}%%
+
+flowchart TD
+    subgraph INPUT["📧 Email Input"]
+        CLIENT["🏢 Client<br/>Sends payroll email<br/>+ attachment"]
+        MAILBOX["📬 Control Mailbox<br/>xaondk@gmail.com"]
+        CLIENT -->|"1. Payroll Email<br/>+ Bank Slip / Payroll Image / PDF"| MAILBOX
+    end
+
+    subgraph PIPELINE["⚙️ AI Pipeline (Automated)"]
+        FETCH["📨 Email Fetching<br/>Gmail Trigger polls every minute"]
+        TEXT_AI["🤖 Text Extraction<br/>Groq llama-3.3-70b<br/>Company, Amount, Type, Approvers"]
+        VISION["👁️ Document Analysis<br/>Images → Groq llama-4-scout<br/>PDFs → Gemini 2.5 Flash"]
+        EMPLOYEE["📋 Employee Extraction<br/>Names, Phone/Acct, Amounts<br/>from attachment"]
+        VALIDATE["✅ Parse & Validate<br/>Authority matrix check<br/>Amount cross-validation<br/>Mismatch detection"]
+
+        FETCH --> TEXT_AI
+        TEXT_AI --> VISION
+        VISION --> EMPLOYEE
+        EMPLOYEE --> VALIDATE
+    end
+
+    subgraph OUTPUT["📊 Output"]
+        NOTIFY["📧 Email Notification<br/>Branded summary sent<br/>to sender + team"]
+        DASHBOARD["🖥️ Dashboard<br/>wave-emi-dashboard.vercel.app<br/>Click to review ticket"]
+    end
+
+    subgraph RESULTS["🔍 AI Detection Results"]
+        MATCH["✅ Amount Verified<br/>Email = Document<br/>→ Proceed to review"]
+        MISMATCH["⚠️ Amount Mismatch<br/>Email ≠ Document<br/>→ Flagged for review"]
+        MISSING["🔴 Missing Approval<br/>Required approvers not found<br/>→ High risk flag"]
+    end
+
+    MAILBOX --> FETCH
+    VALIDATE --> NOTIFY
+    VALIDATE --> DASHBOARD
+    VALIDATE --> MATCH
+    VALIDATE --> MISMATCH
+    VALIDATE --> MISSING
+
+    subgraph HUMAN["👤 Human Review (Dashboard)"]
+        REVIEW["📋 Review Ticket<br/>Amount Verification visible<br/>Employee list auto-extracted<br/>Collapsible AI details"]
+        SUBMIT["📤 Submit for Finance<br/>Pre-checks confirmed"]
+        FINANCE["💰 Finance Approval<br/>Approve or Reject"]
+        EMONEY["🔁 E-Money Processing<br/>CSV generation → Utiba upload<br/>Checker review → Disbursement"]
+
+        REVIEW --> SUBMIT
+        SUBMIT --> FINANCE
+        FINANCE -->|"Approved"| EMONEY
+        FINANCE -->|"Rejected"| REJECTED["❌ Rejected"]
+    end
+
+    DASHBOARD --> REVIEW
+
+    style INPUT fill:#f0f9ff,stroke:#0057B8,color:#001E4E
+    style PIPELINE fill:#001E4E,stroke:#0057B8,color:#fff
+    style OUTPUT fill:#dcfce7,stroke:#16a34a,color:#001E4E
+    style RESULTS fill:#fef3c7,stroke:#d97706,color:#001E4E
+    style HUMAN fill:#f5f7fa,stroke:#64748b,color:#001E4E
+    style MATCH fill:#dcfce7,stroke:#16a34a,color:#155724
+    style MISMATCH fill:#fef3c7,stroke:#d97706,color:#92400e
+    style MISSING fill:#fee2e2,stroke:#dc2626,color:#721c24
+    style REJECTED fill:#fee2e2,stroke:#dc2626,color:#721c24

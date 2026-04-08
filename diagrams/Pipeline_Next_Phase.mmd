@@ -1,0 +1,90 @@
+%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#001E4E', 'primaryTextColor': '#fff', 'primaryBorderColor': '#0057B8', 'lineColor': '#0057B8', 'secondaryColor': '#f0f9ff', 'tertiaryColor': '#dcfce7', 'fontSize': '14px'}}}%%
+
+flowchart TD
+    subgraph INPUT["📧 Email Input"]
+        CLIENT["🏢 Client<br/>Sends payroll email"]
+        SALES["👔 Corporate Sales<br/>Forwards to system"]
+        MAILBOX["📬 Wave Internal Mailbox<br/>(replaces personal Gmail)"]
+        CLIENT -->|"Disbursement Request<br/>+ Payroll + Bank Slip"| SALES
+        SALES -->|"Forward"| MAILBOX
+    end
+
+    subgraph PIPELINE["⚙️ AI Pipeline (Automated)"]
+        FETCH["📨 Email Fetching"]
+        AI["🤖 AI Extraction<br/>Text + Vision + Employee List"]
+        VALIDATE["✅ Validate & Compare<br/>Amount cross-validation<br/>Authority matrix<br/>Phone/Account validation"]
+
+        FETCH --> AI --> VALIDATE
+    end
+
+    MAILBOX --> FETCH
+
+    subgraph DETECT["🔍 AI Detection"]
+        MATCH["✅ All Verified"]
+        MISMATCH["⚠️ Mismatch Detected"]
+    end
+
+    VALIDATE --> MATCH
+    VALIDATE --> MISMATCH
+
+    subgraph MISMATCH_FLOW["🔴 Mismatch Handling (NEW)"]
+        FLAG["📌 Status: Asked Client<br/>Ticket preserved for audit"]
+        RETURN["📧 Return for Correction<br/>Auto-email to Sales team"]
+        RESUBMIT["🔄 Client Resubmits<br/>New ticket created<br/>Links to original"]
+
+        MISMATCH --> FLAG
+        FLAG --> RETURN
+        RETURN -->|"Client corrects"| RESUBMIT
+        RESUBMIT -->|"New email"| FETCH
+    end
+
+    subgraph REVIEW["👤 Dashboard Review"]
+        direction TB
+        CHECK_CLIENT["🏢 Check Client Type<br/>(NEW: Master List)"]
+        NEEDS_FINANCE{"Finance Required?"}
+        FINANCE_YES["💰 Finance Approval<br/>Specific clients only"]
+        FINANCE_SKIP["⏭️ Skip Finance<br/>Exempt clients"]
+
+        MATCH --> CHECK_CLIENT
+        CHECK_CLIENT --> NEEDS_FINANCE
+        NEEDS_FINANCE -->|"Yes (specific clients)"| FINANCE_YES
+        NEEDS_FINANCE -->|"No (exempt: MEB, YESC...)"| FINANCE_SKIP
+    end
+
+    subgraph VALIDATE_TYPE["📋 Payment Type Validation (NEW)"]
+        TYPE_CHECK{"SalaryToMA or<br/>SalaryToOTC?"}
+        MA_CHECK["📱 Wallet (MA)<br/>✓ MSISDN format<br/>✓ L2 KYC check needed<br/>(external: Wave BI portal)"]
+        OTC_CHECK["🆔 OTC (POI)<br/>✓ POI = 6 digits<br/>✓ Max 1M MMK per txn<br/>✓ No duplicates<br/>✓ Additional rules (from Kim)"]
+
+        FINANCE_YES -->|"Approved"| TYPE_CHECK
+        FINANCE_SKIP --> TYPE_CHECK
+        TYPE_CHECK -->|"MA"| MA_CHECK
+        TYPE_CHECK -->|"OTC"| OTC_CHECK
+    end
+
+    subgraph EMONEY["🔁 E-Money Processing"]
+        MOVEMENT["📄 E-Money Movement Form<br/>(NEW: auto-generated PDF)<br/>Internal wallet transfer"]
+        PREPARE["📂 Prepare Utiba Files<br/>CSV generation"]
+        CHECKER["✅ Checker Review"]
+        DISBURSE["💸 Disbursement"]
+        CLOSE["🏁 Close & Archive"]
+
+        MA_CHECK --> MOVEMENT
+        OTC_CHECK --> MOVEMENT
+        MOVEMENT --> PREPARE
+        PREPARE --> CHECKER
+        CHECKER --> DISBURSE
+        DISBURSE --> CLOSE
+    end
+
+    style INPUT fill:#f0f9ff,stroke:#0057B8,color:#001E4E
+    style PIPELINE fill:#001E4E,stroke:#0057B8,color:#fff
+    style DETECT fill:#fef3c7,stroke:#d97706,color:#001E4E
+    style MISMATCH_FLOW fill:#fee2e2,stroke:#dc2626,color:#001E4E
+    style REVIEW fill:#f0f9ff,stroke:#0057B8,color:#001E4E
+    style VALIDATE_TYPE fill:#e0e7ff,stroke:#3730a3,color:#001E4E
+    style EMONEY fill:#dcfce7,stroke:#16a34a,color:#001E4E
+    style MATCH fill:#dcfce7,stroke:#16a34a,color:#155724
+    style MISMATCH fill:#fef3c7,stroke:#d97706,color:#92400e
+    style FLAG fill:#fee2e2,stroke:#dc2626,color:#721c24
+    style MOVEMENT fill:#e0e7ff,stroke:#3730a3,color:#1e40af
