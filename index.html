@@ -2597,14 +2597,13 @@ function openTicketDetail(ticketId){
     // Upload zone — always show (user can upload/replace)
     if(!t.prechecks_done){
       const modalEid = 'modal-'+t.id;
-      html += '<div style="margin-top:12px"><div class="upload-zone" style="padding:16px" id="emp-zone-'+modalEid+'">';
-      html += '<input type="file" accept=".csv,.xlsx,.png,.jpg,.jpeg,.pdf" onchange="handleEmployeeUpload(this,\''+modalEid+'\',\''+t.id+'\')"/>';
-      html += '<div class="upload-icon">&#128196;</div>';
-      html += '<div class="upload-label">Drop or click to upload</div>';
-      html += '<div class="upload-hint">CSV, Excel, or Document (PNG/JPG/PDF)</div>';
-      html += '</div><div id="emp-preview-'+modalEid+'"></div></div>';
-      // Submit button
-      html += '<div style="margin-top:12px"><button class="btn btn-primary" id="submit-btn-'+modalEid+'" onclick="submitTicketFromModal(\''+t.id+'\',\''+modalEid+'\')"'+(hasEmployees?'':' disabled')+'>Save &amp; Submit for Finance</button></div>';
+      html += '<div id="emp-preview-'+modalEid+'"></div>';
+      html += '<div style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">';
+      html += '<button class="btn btn-primary" id="submit-btn-'+modalEid+'" onclick="submitTicketFromModal(\''+t.id+'\',\''+modalEid+'\')"'+(hasEmployees?'':' disabled')+'>Save &amp; Submit for Finance</button>';
+      html += '<label class="btn btn-outline" style="cursor:pointer;position:relative;overflow:hidden" id="emp-zone-'+modalEid+'">';
+      html += '<input type="file" accept=".csv,.xlsx,.png,.jpg,.jpeg,.pdf" onchange="handleEmployeeUpload(this,\''+modalEid+'\',\''+t.id+'\')" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer"/>';
+      html += '&#128196; Upload Employee List</label>';
+      html += '</div>';
     }
     html += '</div></div>';
   }
