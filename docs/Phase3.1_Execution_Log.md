@@ -180,6 +180,33 @@
 
 ---
 
+## Session 3 — April 8 Post-Demo Polish (~11 AM - 2 PM)
+
+### Polish Items Completed
+- **Confidence label:** "Confidence: 100%" → "Extraction: 100%" (avoid confusion with Vision 85%)
+- **3-way Amount Check:** Added Email vs Slip vs Employee reconciliation in Dashboard modal
+- **Expandable email body:** Email Details shows 120 chars + "Show full email" toggle
+- **Mismatch flow:** Red "Return for Correction" button + "Override & Continue" on mismatch tickets
+- **Compact upload button:** Large upload zone replaced with inline "Upload Employee List" button next to Submit
+- **Pushed:** commit `d6ec283`
+
+### v5.1 Pipeline — Full Email Body + Circuit Breaker Fix
+- **Status:** DONE — cloned from v5, v5 stays as fallback
+- **Changes:**
+  - Prepare node: passes `email_body_full` (capped 2000 chars) alongside existing `body_preview`
+  - Vision Process: circuit breaker threshold 3→5, removed debug reset lines
+  - Parse & Validate: passes `email_body_full` through to ticket + dashboard URL
+- **Dashboard:** `createTicketFromN8n()` accepts `email_body_full`, modal uses it with fallback to `body_preview`
+- **Bug fix:** `${fullBody}` was literal text inside single-quoted ternary — separated into distinct template literals
+- **Pushed:** commits `373e2de` + `548bd65`
+
+### Dong Duong (FE Dev) Added
+- Minh assigned Dong (dong.duong@trustifytechnology.com) to help with UI/UX
+- Repo is PUBLIC — shared link directly, no collaborator setup needed
+- Dong can fork + PR, or DK can add as collaborator later if needed
+
+---
+
 ### Step 7 (EXPANDED): v5 Pipeline — Dual Vision (Groq + Gemini PDF)
 - **Status:** DONE
 - **Time:** ~10 PM - 11:30 PM Apr 7
