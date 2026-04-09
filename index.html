@@ -322,6 +322,7 @@ textarea{resize:vertical;min-height:120px;}
 .row-status{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:500;padding:3px 9px;border-radius:20px;white-space:nowrap;}
 .rs-ok{background:#dcfce7;color:var(--success);}
 .rs-pending{background:#f1f5f9;color:var(--muted);}
+.rs-asked-client{background:#fef3c7;color:#92400e;}
 .rs-processing{background:#dbeafe;color:var(--blue);}
 .rs-fail{background:#fee2e2;color:var(--danger);}
 
@@ -620,6 +621,7 @@ function deriveStatus(t){
   // Legacy: keep SENT_TO_CHECKER for backward compat
   if(t.sent_to_checker) return 'SENT_TO_CHECKER';
   if(t.prechecks_done && t.finance_status === 'APPROVED') return 'READY_FOR_CHECKER';
+  if(t.has_mismatch && !t.prechecks_done && t.scenario === 'AMOUNT_MISMATCH') return 'ASKED_CLIENT';
   if(!t.prechecks_done) return 'AWAITING_EMPLOYEE_LIST';
   return 'PENDING_FINANCE';
 }
@@ -770,8 +772,8 @@ function allTickets(){ return Object.values(state.tickets); }
 function countByStatus(s){ return allTickets().filter(t=>t.status===s).length; }
 
 function statusBadgeHtml(s){
-  const map = {AWAITING_EMPLOYEE_LIST:'badge-awaiting',PENDING_FINANCE:'badge-pending',READY_FOR_CHECKER:'badge-ready',REJECTED:'badge-rejected',SENT_TO_CHECKER:'badge-sent',PREPARING_FILES:'badge-pending',WITH_CHECKER:'badge-awaiting',GROUP_MAPPING:'badge-pending',DISBURSING:'badge-ready',CLOSING:'badge-ready',COMPLETED:'badge-sent'};
-  const labels = {AWAITING_EMPLOYEE_LIST:'Awaiting Emp. List',PENDING_FINANCE:'Pending Finance',READY_FOR_CHECKER:'Ready for Checker',REJECTED:'Rejected',SENT_TO_CHECKER:'Sent to Checker',PREPARING_FILES:'Preparing Files',WITH_CHECKER:'With Checker',GROUP_MAPPING:'Group Mapping',DISBURSING:'Disbursing',CLOSING:'Closing',COMPLETED:'Completed'};
+  const map = {ASKED_CLIENT:'badge-warn',AWAITING_EMPLOYEE_LIST:'badge-awaiting',PENDING_FINANCE:'badge-pending',READY_FOR_CHECKER:'badge-ready',REJECTED:'badge-rejected',SENT_TO_CHECKER:'badge-sent',PREPARING_FILES:'badge-pending',WITH_CHECKER:'badge-awaiting',GROUP_MAPPING:'badge-pending',DISBURSING:'badge-ready',CLOSING:'badge-ready',COMPLETED:'badge-sent'};
+  const labels = {ASKED_CLIENT:'Asked Client',AWAITING_EMPLOYEE_LIST:'Awaiting Emp. List',PENDING_FINANCE:'Pending Finance',READY_FOR_CHECKER:'Ready for Checker',REJECTED:'Rejected',SENT_TO_CHECKER:'Sent to Checker',PREPARING_FILES:'Preparing Files',WITH_CHECKER:'With Checker',GROUP_MAPPING:'Group Mapping',DISBURSING:'Disbursing',CLOSING:'Closing',COMPLETED:'Completed'};
   return `<span class="${map[s]||'badge-awaiting'}">${labels[s]||s}</span>`;
 }
 function riskBadgeHtml(r){
@@ -983,7 +985,8 @@ function renderDashboard(){
       let visionCol = '<span style="color:#94a3b8;font-size:12px">—</span>';
       if(t.vision_parsed){
         const conf = (t.vision_confidence*100).toFixed(0);
-        visionCol = `<span style="background:#f5f3ff;color:#7c3aed;font-size:11px;padding:2px 6px;border-radius:4px;font-weight:600">👁 Vision${conf>0?' '+conf+'%':''}</span>`;
+        const confColor = conf>=90?'background:#dcfce7;color:#166534':conf>=70?'background:#fef3c7;color:#92400e':'background:#fee2e2;color:#dc2626';
+        visionCol = `<span style="${confColor};font-size:11px;padding:2px 6px;border-radius:4px;font-weight:600">👁 Vision${conf>0?' '+conf+'%':''}</span>`;
         if(t.amount_on_document && t.has_mismatch) visionCol += '<br><span style="background:#fef3c7;color:#92400e;font-size:10px;padding:1px 4px;border-radius:3px">⚠ mismatch</span>';
         else if(t.amount_on_document) visionCol += '<br><span style="background:#dcfce7;color:#166534;font-size:10px;padding:1px 4px;border-radius:3px">✓ match</span>';
       } else if(t.vision_status && t.vision_status !== 'none'){
@@ -1064,7 +1067,8 @@ function renderEmails(){
       let visionBadge = '';
       if(t.vision_parsed){
         const conf = (t.vision_confidence*100).toFixed(0);
-        visionBadge = `<span class="badge badge-purple">Vision${conf>0?' '+conf+'%':''}</span>`;
+        const confCls = conf>=90?'badge-sent':conf>=70?'badge-warn':'badge-rejected';
+        visionBadge = `<span class="${confCls}">Vision${conf>0?' '+conf+'%':''}</span>`;
       }
       html += `<div class="n8n-ticket-card" onclick="openTicketDetail('${t.id}')">
         <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px;flex-wrap:wrap;gap:6px">
@@ -2559,7 +2563,7 @@ function openTicketDetail(ticketId){
         ${typeBadgeHtml(t.type)} ${riskBadgeHtml(t.risk_level)}
         ${t.scenario&&t.scenario!=='NORMAL'?'<span class="badge badge-warn">'+t.scenario.replace(/_/g,' ')+'</span>':''}
         ${t.n8n_source?'<span style="background:#FF6D5A;color:#fff;font-size:11px;padding:3px 8px;border-radius:4px;font-weight:700">Auto</span>':''}
-        ${t.vision_parsed?'<span class="badge badge-purple">Vision'+((t.vision_confidence||0)>0?' '+(t.vision_confidence*100).toFixed(0)+'%':'')+'</span>':''}
+        ${t.vision_parsed?(()=>{const c=((t.vision_confidence||0)*100).toFixed(0);const cls=c>=90?'badge-sent':c>=70?'badge-warn':'badge-rejected';return '<span class="'+cls+'">Vision'+(c>0?' '+c+'%':'')+'</span>';})():''}
       </div>
     </div>
     <button class="btn btn-ghost btn-sm" onclick="document.getElementById('ticket-detail-modal').classList.remove('open')" style="font-size:20px;padding:4px 8px">&times;</button>
@@ -2576,6 +2580,16 @@ function openTicketDetail(ticketId){
     }
   }
 
+  // Confidence warning (Minh: what happens when confidence < 90%?)
+  if(t.vision_parsed && (t.vision_confidence||0) > 0 && (t.vision_confidence||0) < 0.9){
+    const confPct = (t.vision_confidence*100).toFixed(0);
+    const isLow = t.vision_confidence < 0.7;
+    html += `<div style="background:${isLow?'#fee2e2':'#fef3c7'};border:1px solid ${isLow?'#fca5a5':'#fde68a'};border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:13px">
+      <strong style="color:${isLow?'#dc2626':'#92400e'}">${isLow?'Low':'Moderate'} AI Confidence (${confPct}%)</strong>
+      <div style="margin-top:4px;color:${isLow?'#991b1b':'#78350f'}">${isLow?'Recommend uploading employee list manually to ensure accuracy.':'Please verify extracted employee data before submitting.'}</div>
+    </div>`;
+  }
+
   // Mismatch Action — Return for Correction (Minh: bank shouldn't fix client's error)
   if(t.scenario === 'AMOUNT_MISMATCH' && !t.prechecks_done){
     html += `<div style="background:#fee2e2;border:2px solid var(--danger);border-radius:8px;padding:16px;margin-bottom:16px">
@@ -2589,6 +2603,7 @@ function openTicketDetail(ticketId){
           <button class="btn btn-outline" style="font-size:13px;color:var(--muted)" onclick="this.parentElement.parentElement.parentElement.style.display='none'">Override &amp; Continue</button>
         </div>
       </div>
+      <div style="font-size:12px;color:#92400e;margin-top:10px;border-top:1px solid #fde68a;padding-top:8px">This ticket is preserved for audit. A corrected resubmission from the client will create a new ticket.</div>
     </div>`;
   }
 

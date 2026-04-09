@@ -1,6 +1,6 @@
 # Wave EMI Dashboard
 
-Internal operations tool for Wave Money's corporate salary disbursement pipeline in Myanmar. Automates the end-to-end workflow from email intake to Utiba CSV generation, with AI-powered document parsing and authority matrix validation.
+Internal operations tool for Wave Money's corporate salary disbursement pipeline in Myanmar. Automates the end-to-end workflow from email intake to Utiba CSV generation, with AI-powered document parsing, vision OCR, and authority matrix validation.
 
 ## Live Demo
 
@@ -10,14 +10,16 @@ Internal operations tool for Wave Money's corporate salary disbursement pipeline
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│  n8n Cloud Pipeline                                                  │
+│  n8n Cloud Pipeline (v5.1 — 10 nodes)                                │
 │                                                                      │
 │  Gmail Trigger ──→┐                                                  │
-│                   ├→ Prepare for AI → Groq AI → Parse & Validate     │
-│  Webhook Trigger →┘                    │              │               │
-│                              (v3: Vision Process)     │               │
-│                                                       ├→ Respond      │
-│                                                       └→ Notify       │
+│                   ├→ Prepare → Groq Text → Vision → Employee → Parse │
+│  Webhook Trigger →┘            Extract    Process   Extract  Validate│
+│                                             │                  │     │
+│                              Groq (images) ─┘                  │     │
+│                              Gemini (PDFs) ─┘                  │     │
+│                                                    ├→ Respond        │
+│                                                    └→ Notify         │
 └──────────────────────────────────────────────────────────────────────┘
         │                                        │
         ▼                                        ▼
@@ -39,36 +41,33 @@ Internal operations tool for Wave Money's corporate salary disbursement pipeline
 
 | Component | Technology |
 |-----------|-----------|
-| Frontend | Single HTML file, vanilla JS, CSS variables |
+| Frontend | Single HTML file, vanilla JS, CSS variables (~2,700 lines) |
 | AI (text) | Groq API — `llama-3.3-70b-versatile` |
-| AI (vision) | Groq API — `llama-4-scout-17b-16e-instruct` (v3) |
+| AI (vision) | Groq API — `llama-4-scout-17b-16e-instruct` (images) |
+| AI (PDF) | Google Gemini API — `gemini-2.5-flash` (native PDF support) |
 | Automation | n8n Cloud (workflow JSON configs) |
 | Hosting | Vercel (static + serverless) |
 | Data | localStorage (browser-side persistence) |
-| File parsing | SheetJS/XLSX (CDN) |
+| File parsing | SheetJS/XLSX (CDN), PDF.js (CDN, lazy-loaded) |
 
 ## Pipeline Versions
 
-### v2 — Text Extraction (Production)
+| Version | Nodes | Status | Key Feature |
+|---------|-------|--------|-------------|
+| **v5.1** | 10 | **Active** | Full email body passthrough + circuit breaker fix |
+| v5 | 10 | Deactivated | Dual vision (Groq images + Gemini PDF) |
+| v4 | 10 | Deactivated | Groq vision only |
+| v3 | 9 | Untouched | Safety fallback (NEVER modified) |
+| v2 | 8 | Archived | Text extraction only |
+| v1 | — | Archived | Original prototype |
 
-8-node pipeline. Parses email text with Groq LLM, validates authority matrix, routes to webhook response or email notification.
-
-**File:** `pipelines/n8n-workflow-v2.json`
-
-### v3 — Vision + Rate Limiting
-
-9-node pipeline. Adds:
-- **Attachment download** — Gmail Trigger extracts binary attachments
-- **Vision AI** — Conditional Groq Vision API call on image attachments (bank slips, payment docs)
-- **Cross-validation** — Compares document amount vs email amount (1% tolerance)
-- **Rate limiting** — 100 text calls/day, 20 vision calls/day, circuit breaker on 3 consecutive errors
-- **Graceful degradation** — Every failure path produces a valid text-only ticket
-
-**File:** `pipelines/n8n-workflow-v3.json`
-
-### v1 — Original (Archived)
-
-First iteration with basic structure. **File:** `pipelines/n8n-workflow-v1.json`
+**Active pipeline (v5.1)** features:
+- Dual AI vision: Groq for images, Gemini 2.5 Flash for PDFs
+- Full email body passthrough (capped 2,000 chars)
+- Circuit breaker: 5-error threshold with daily reset
+- Myanmar handwriting OCR validated (100% name transliteration on real data)
+- Cross-validation: email amount vs document amount vs employee total (3-way check)
+- Rate limiting: 100 text calls/day, 20 vision calls/day
 
 ## Dashboard Features
 
@@ -91,55 +90,59 @@ First iteration with basic structure. **File:** `pipelines/n8n-workflow-v1.json`
 - **Finance exemption** — MEB, YESC, MESC, SSB clients skip finance approval
 - **OTC split** — Each OTC employee generates 2 rows (1,000,000 + 400,000 MMK)
 - **MSISDN validation** — Myanmar mobile format `09xxxxxxxxx`
-- **AI keyword filter** — Non-disbursement emails are silently dropped
-- **Vision cross-validation** (v3) — Amount mismatch detection between email text and bank slip document
+- **Mismatch detection** — 3-way amount check (email vs slip vs employees), red badges, "Return for Correction" flow
+- **Collapsible modal** — Amount Verification visible, AI details collapsed
+- **PDF support** — Client-side PDF.js for manual upload, Gemini native for pipeline
 
 ## Project Structure
 
 ```
 wave-emi-dashboard/
-├── index.html                  ← Dashboard app (single-file, ~2,400 lines)
+├── index.html                  ← Dashboard app (single-file, ~2,700 lines)
 ├── vercel.json                 ← Vercel routing config
 ├── README.md
 ├── api/
 │   └── webhook.js              ← Vercel serverless endpoint for n8n
 │
-├── pipelines/                  ← n8n workflow JSON files
-│   ├── n8n-workflow-v3.json    (active — vision + rate limiting)
-│   ├── n8n-workflow-v2.json    (backup — text extraction only)
-│   └── n8n-workflow-v1.json    (original archived)
+├── pipelines/                  ← n8n workflow JSON files (v1-v5.1)
+│   ├── n8n-workflow-v5.1.json  (active — dual vision + email body)
+│   ├── n8n-workflow-v5.json    (backup — dual vision)
+│   ├── n8n-workflow-v4.json    (backup — Groq vision only)
+│   ├── n8n-workflow-v3.json    (safety fallback — NEVER modified)
+│   ├── n8n-workflow-v2.json    (archived — text only)
+│   └── n8n-workflow-v1.json    (archived — original)
 │
-├── diagrams/                   ← Mermaid sequence & system diagrams
+├── diagrams/                   ← Workflow diagrams
+│   ├── Pipeline_Current_v5.1.mmd          (current state — Mermaid)
+│   ├── Pipeline_Next_Phase.mmd            (future features — Mermaid)
+│   ├── workflow_current_v51_deepseek.html  (presentation-ready HTML)
+│   ├── workflow_current_v51_chatgpt.png    (shared with team)
 │   ├── EMI_Sequence_Diagram.mmd
 │   ├── EMI_System_Workflow.mmd
 │   └── n8n_Pipeline_Diagram.mmd
 │
-├── samples/                    ← Test data, bank slips, demo scripts
-│   ├── bank_slip_acme_innovations.png
-│   ├── bank_slip_gintar_solutions.png
-│   ├── sample_employees.csv
-│   └── demo_email_*.md + DEMO_SCRIPT_*.md
+├── samples/                    ← Test data
+├── research/                   ← OCR samples, AI council reviews
+├── docs/                       ← Documentation, meeting analyses, plans
+│   └── Rita Doc/               ← Workflow reference from Rita
 │
-└── docs/                       ← Documentation, analysis, plans
-    ├── APP_WALKTHROUGH.md
-    ├── Phase2_Execution_Log.md
-    ├── Meeting_Analysis_2026-04-06.md
-    ├── Phase3_*.md (analysis files)
-    └── Rita_Doc/ (workflow reference)
+├── _meetings/                  ← Meeting recordings + transcripts (.gitignored)
+└── _archive/                   ← Superseded versions
 ```
 
 ## Setup
 
 ### Dashboard (Vercel)
 
-The dashboard auto-deploys from this repo's `main` branch. No build step required — it's a static HTML file.
+Auto-deploys from `main` branch. No build step — static HTML file.
 
 ### n8n Pipeline
 
-1. Import the desired workflow JSON into [n8n Cloud](https://n8n.cloud)
+1. Import `pipelines/n8n-workflow-v5.1.json` into [n8n Cloud](https://n8n.cloud)
 2. Set credentials:
    - **Gmail OAuth2** — for Gmail Trigger + Send Gmail Notification nodes
-   - **Groq API Key** — replace `REPLACE_WITH_GROQ_API_KEY` in the Groq AI Extract node header (and Vision Process node for v3)
+   - **Groq API Key** — in Groq AI Extract, Vision Process, Employee Extract nodes
+   - **Gemini API Key** — in Vision Process + Employee Extract nodes (PDF path)
 3. Activate the workflow
 
 ### Local Development
@@ -148,23 +151,10 @@ Open `index.html` in any browser. Data persists in localStorage.
 
 **Reset:** Press `Ctrl+Shift+R` to clear all data and reload.
 
-## CSV Output Formats
-
-The E-Money processing step generates 7 Utiba-compatible CSV files:
-
-| File | Format | Use |
-|------|--------|-----|
-| DMM→Disbursement Ledger | `SOURCE,TARGET,AMOUNT,DESCRIPTION` | Ledger transfer |
-| Disbursement→Corporate | `SOURCE,TARGET,AMOUNT,DESCRIPTION` | Corporate transfer |
-| FeeDisbursement | `SOURCE,TARGET,AMOUNT,DESCRIPTION` | Fee transfer |
-| SalaryToMA | `AMOUNT,SOURCE_WALLET,TARGET_MSISDN,DESCRIPTION` | Mobile account salary |
-| SalaryToOTC | `AMOUNT,SOURCE_WALLET,AGENT_ID,DESCRIPTION,MSISDN,EMAIL,0,0` | OTC salary (2 rows/employee) |
-| MapAgent | `MSISDN,GROUP NAME` | OTC group mapping |
-| UnmapAgent | `MSISDN,GROUP NAME` | OTC group unmapping |
-
 ## Security Notes
 
-- No real employee data (MSISDNs, salaries) is sent to cloud APIs — file parsing is client-side only
-- API keys are stored as n8n Cloud credentials, not in source code
-- Workflow JSON files use `REPLACE_WITH_GROQ_API_KEY` placeholder
+- No real employee data (MSISDNs, salaries) sent to cloud APIs — file parsing is client-side only
+- API keys stored as n8n Cloud credentials, not in source code
+- Workflow JSON files use placeholder keys
 - Vision rate limiting prevents API abuse (daily caps + circuit breaker)
+- Production will require PCI-compliant hosting (Vercel is demo only)

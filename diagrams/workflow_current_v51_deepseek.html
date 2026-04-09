@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wave Money EMI · Salary Disbursement Workflow</title>
+  <!-- Font Awesome 6 (Free icons) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <!-- Modern sans-serif font -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #f1f5f9;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      padding: 32px;
+    }
+
+    /* High‑resolution landscape card — 16:9 feel, white background */
+    .workflow-diagram {
+      max-width: 1400px;
+      width: 100%;
+      background: #ffffff;
+      border-radius: 28px;
+      box-shadow: 0 20px 35px -8px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+      padding: 36px 40px;
+      transition: all 0.2s;
+    }
+
+    /* Section spacing */
+    .section {
+      margin-bottom: 20px;
+    }
+
+    /* Down arrow between sections */
+    .arrow-down-container {
+      display: flex;
+      justify-content: center;
+      margin: 12px 0 18px 0;
+    }
+    .arrow-down {
+      color: #0057B8;
+      font-size: 28px;
+      line-height: 1;
+      background: white;
+      width: 48px;
+      height: 48px;
+      border-radius: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(0,30,78,0.08);
+      border: 1px solid #e2e8f0;
+    }
+
+    /* SECTION 1 – EMAIL INPUT (light blue) */
+    .section-1 {
+      background: #e0f2fe;  /* light blue */
+      border-radius: 22px;
+      padding: 28px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .client-box, .mailbox-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      width: 28%;
+    }
+    .client-icon, .mailbox-icon {
+      background: white;
+      width: 64px;
+      height: 64px;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+      color: #001E4E;
+      font-size: 32px;
+      box-shadow: 0 4px 6px -2px rgba(0,0,0,0.05);
+      border: 1px solid rgba(0,87,184,0.08);
+    }
+    .arrow-email {
+      background: #0057B8;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 60px;
+      font-weight: 600;
+      font-size: 1rem;
+      letter-spacing: -0.01em;
+      box-shadow: 0 6px 12px -6px rgba(0,87,184,0.3);
+      border: 1px solid #ffffff30;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .label-main {
+      font-weight: 700;
+      font-size: 1.25rem;
+      color: #001E4E;
+      margin-bottom: 6px;
+    }
+    .label-sub {
+      font-size: 0.9rem;
+      color: #334155;
+      font-weight: 500;
+    }
+
+    /* SECTION 2 – AI PIPELINE (dark navy) */
+    .section-2 {
+      background: #001E4E;
+      border-radius: 22px;
+      padding: 28px 24px;
+      color: white;
+    }
+    .pipeline-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .pipeline-step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      width: 16%;
+    }
+    .pipeline-icon {
+      background: #002c66;
+      width: 60px;
+      height: 60px;
+      border-radius: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 14px;
+      color: #00C2D4;
+      font-size: 28px;
+      border: 1px solid #2a4a7a;
+    }
+    .pipeline-label {
+      font-weight: 700;
+      font-size: 1rem;
+      margin-bottom: 6px;
+      color: white;
+    }
+    .pipeline-sub {
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: #b0c7e9;
+      line-height: 1.4;
+    }
+    .pipeline-arrow {
+      color: #00C2D4;
+      font-size: 24px;
+      margin: 0 2px;
+    }
+
+    /* SECTION 3 – OUTPUT (split two columns) */
+    .section-3 {
+      display: flex;
+      gap: 24px;
+    }
+    .output-left {
+      flex: 1;
+      background: #dcfce7;  /* light green */
+      border-radius: 22px;
+      padding: 24px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+    .output-right {
+      flex: 1;
+      background: #fef3c7;  /* light yellow */
+      border-radius: 22px;
+      padding: 24px 20px;
+    }
+    .output-item {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+    .output-icon {
+      background: white;
+      width: 54px;
+      height: 54px;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      color: #0057B8;
+      box-shadow: 0 3px 5px rgba(0,0,0,0.02);
+    }
+    .detection-title {
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: #001E4E;
+      margin-bottom: 22px;
+      letter-spacing: -0.2px;
+    }
+    .detection-badge {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 24px;
+      background: white;
+      padding: 14px 18px;
+      border-radius: 18px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+    }
+    .badge-icon {
+      font-size: 28px;
+      width: 40px;
+      text-align: center;
+    }
+    .badge-text {
+      font-weight: 600;
+    }
+    .badge-sub {
+      font-size: 0.8rem;
+      color: #475569;
+      font-weight: 500;
+    }
+    .dash-arrow-down {
+      display: flex;
+      justify-content: center;
+      margin: 8px 0 6px;
+    }
+
+    /* SECTION 4 – HUMAN REVIEW (light gray) */
+    .section-4 {
+      background: #f3f4f6;
+      border-radius: 22px;
+      padding: 30px 20px 30px 20px;
+    }
+    .review-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+    }
+    .review-step {
+      width: 22%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+    .review-icon {
+      background: white;
+      width: 56px;
+      height: 56px;
+      border-radius: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 14px;
+      color: #001E4E;
+      font-size: 26px;
+      border: 1px solid #e2e8f0;
+    }
+    .split-container {
+      width: 28%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
+    }
+    .split-buttons {
+      display: flex;
+      width: 100%;
+      gap: 16px;
+      justify-content: center;
+    }
+    .approved-box, .rejected-box {
+      padding: 12px 8px;
+      border-radius: 16px;
+      font-weight: 700;
+      text-align: center;
+      width: 120px;
+    }
+    .approved-box {
+      background: #16a34a;
+      color: white;
+      box-shadow: 0 4px 8px -2px rgba(22,163,74,0.2);
+    }
+    .rejected-box {
+      background: #dc2626;
+      color: white;
+      box-shadow: 0 4px 8px -2px rgba(220,38,38,0.15);
+    }
+    .split-arrow {
+      color: #0057B8;
+      font-weight: 700;
+      font-size: 0.9rem;
+      margin-bottom: 4px;
+    }
+    .processing-sub {
+      font-size: 0.7rem;
+      font-weight: 500;
+      opacity: 0.9;
+      margin-top: 4px;
+    }
+
+    /* Horizontal arrows inside sections */
+    .horiz-arrow {
+      color: #64748b;
+      font-size: 22px;
+      align-self: center;
+      margin: 0 4px;
+    }
+
+    /* Footer */
+    .footer-note {
+      margin-top: 32px;
+      text-align: center;
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: #62748c;
+      letter-spacing: 0.3px;
+      border-top: 1px dashed #cbd5e1;
+      padding-top: 20px;
+    }
+
+    /* Utility */
+    .text-small {
+      font-size: 0.8rem;
+    }
+    i {
+      line-height: 1;
+    }
+  </style>
+</head>
+<body>
+<div class="workflow-diagram">
+
+  <!-- ===== SECTION 1 : Email Input ===== -->
+  <div class="section-1">
+    <!-- Client -->
+    <div class="client-box">
+      <div class="client-icon">
+        <i class="fas fa-user-tie"></i>
+      </div>
+      <div class="label-main">Client</div>
+      <div class="label-sub">Sends payroll email + attachment</div>
+    </div>
+
+    <!-- Arrow with label -->
+    <div class="arrow-email">
+      <i class="fas fa-paperclip"></i> Payroll Email + Bank Slip / Payroll Image / PDF <i class="fas fa-arrow-right"></i>
+    </div>
+
+    <!-- Control Mailbox -->
+    <div class="mailbox-box">
+      <div class="mailbox-icon">
+        <i class="fas fa-envelope-open-text"></i>
+      </div>
+      <div class="label-main">Control Mailbox</div>
+      <div class="label-sub">Gmail inbox monitored by system</div>
+    </div>
+  </div>
+
+  <!-- Down arrow -->
+  <div class="arrow-down-container">
+    <div class="arrow-down"><i class="fas fa-arrow-down"></i></div>
+  </div>
+
+  <!-- ===== SECTION 2 : AI Pipeline (Automated) ===== -->
+  <div class="section-2">
+    <div class="pipeline-row">
+      <!-- Step 1 -->
+      <div class="pipeline-step">
+        <div class="pipeline-icon"><i class="fas fa-envelope"></i></div>
+        <div class="pipeline-label">Email Fetching</div>
+        <div class="pipeline-sub">Auto-polls every minute</div>
+      </div>
+      <div class="pipeline-arrow"><i class="fas fa-chevron-right"></i></div>
+
+      <!-- Step 2 -->
+      <div class="pipeline-step">
+        <div class="pipeline-icon"><i class="fas fa-cog"></i></div>
+        <div class="pipeline-label">Email Analysis</div>
+        <div class="pipeline-sub">Extract: Company, Amount, Type, Approvers</div>
+      </div>
+      <div class="pipeline-arrow"><i class="fas fa-chevron-right"></i></div>
+
+      <!-- Step 3 -->
+      <div class="pipeline-step">
+        <div class="pipeline-icon"><i class="fas fa-eye"></i></div>
+        <div class="pipeline-label">Document Analysis</div>
+        <div class="pipeline-sub">Read attachment: bank slip or payroll document</div>
+      </div>
+      <div class="pipeline-arrow"><i class="fas fa-chevron-right"></i></div>
+
+      <!-- Step 4 -->
+      <div class="pipeline-step">
+        <div class="pipeline-icon"><i class="fas fa-clipboard-list"></i></div>
+        <div class="pipeline-label">Employee Extraction</div>
+        <div class="pipeline-sub">Names, Phone numbers, Amounts from attachment</div>
+      </div>
+      <div class="pipeline-arrow"><i class="fas fa-chevron-right"></i></div>
+
+      <!-- Step 5 -->
+      <div class="pipeline-step">
+        <div class="pipeline-icon"><i class="fas fa-check-circle"></i></div>
+        <div class="pipeline-label">Validate & Compare</div>
+        <div class="pipeline-sub">Cross-check email vs document amounts</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Down arrow -->
+  <div class="arrow-down-container">
+    <div class="arrow-down"><i class="fas fa-arrow-down"></i></div>
+  </div>
+
+  <!-- ===== SECTION 3 : Output (split side by side) ===== -->
+  <div class="section-3">
+    <!-- LEFT: light green -->
+    <div class="output-left">
+      <div class="output-item">
+        <div class="output-icon"><i class="fas fa-envelope"></i></div>
+        <div>
+          <div class="label-main" style="font-size:1.1rem; margin-bottom:2px;">Email Notification</div>
+          <div class="label-sub">Summary sent to sender + team</div>
+        </div>
+      </div>
+      <div class="output-item">
+        <div class="output-icon"><i class="fas fa-desktop"></i></div>
+        <div>
+          <div class="label-main" style="font-size:1.1rem; margin-bottom:2px;">Dashboard</div>
+          <div class="label-sub">Click link to review ticket</div>
+        </div>
+      </div>
+      <!-- Arrow from Dashboard down to Section 4 (indicated visually) -->
+      <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+        <span style="background: #bbf7d0; padding: 6px 20px; border-radius: 40px; font-size:0.8rem; font-weight:600; color:#166534;"><i class="fas fa-arrow-down" style="margin-right:6px;"></i> to Section 4</span>
+      </div>
+    </div>
+
+    <!-- RIGHT: light yellow - AI Detection Results -->
+    <div class="output-right">
+      <div class="detection-title"><i class="fas fa-robot" style="margin-right: 10px; color:#001E4E;"></i>AI Detection Results</div>
+      
+      <div class="detection-badge" style="border-left: 6px solid #16a34a;">
+        <div class="badge-icon" style="color:#16a34a;"><i class="fas fa-check-circle"></i></div>
+        <div>
+          <div class="badge-text">Amount Verified</div>
+          <div class="badge-sub">Email matches Document</div>
+        </div>
+      </div>
+      
+      <div class="detection-badge" style="border-left: 6px solid #d97706;">
+        <div class="badge-icon" style="color:#d97706;"><i class="fas fa-exclamation-triangle"></i></div>
+        <div>
+          <div class="badge-text">Amount Mismatch</div>
+          <div class="badge-sub">Email ≠ Document, flagged</div>
+        </div>
+      </div>
+      
+      <div class="detection-badge" style="border-left: 6px solid #dc2626;">
+        <div class="badge-icon" style="color:#dc2626;"><i class="fas fa-times-circle"></i></div>
+        <div>
+          <div class="badge-text">Missing Approval</div>
+          <div class="badge-sub">Required approvers not found</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Arrow down (explicit from Dashboard to Section 4) -->
+  <div class="arrow-down-container" style="margin-top: 6px; margin-bottom: 12px;">
+    <div class="arrow-down" style="background: #f8fafc;"><i class="fas fa-arrow-down" style="color:#0057B8;"></i></div>
+  </div>
+
+  <!-- ===== SECTION 4 : Human Review on Dashboard ===== -->
+  <div class="section-4">
+    <div class="review-row">
+      <!-- Step 1 -->
+      <div class="review-step">
+        <div class="review-icon"><i class="fas fa-clipboard-check"></i></div>
+        <div class="label-main" style="font-size:1rem;">Review Ticket</div>
+        <div class="label-sub" style="max-width: 180px;">Amount verification visible, Employee list shown, AI details collapsible</div>
+      </div>
+      <div class="horiz-arrow"><i class="fas fa-arrow-right"></i></div>
+
+      <!-- Step 2 -->
+      <div class="review-step">
+        <div class="review-icon"><i class="fas fa-upload"></i></div>
+        <div class="label-main" style="font-size:1rem;">Confirm & Submit</div>
+        <div class="label-sub" style="max-width: 170px;">Upload employee list if needed, Submit for Finance</div>
+      </div>
+      <div class="horiz-arrow"><i class="fas fa-arrow-right"></i></div>
+
+      <!-- Step 3 -->
+      <div class="review-step">
+        <div class="review-icon"><i class="fas fa-hand-holding-usd"></i></div>
+        <div class="label-main" style="font-size:1rem;">Finance Approval</div>
+        <div class="label-sub">Approve or Reject</div>
+      </div>
+      
+      <!-- Step 4 SPLIT (two paths) -->
+      <div class="split-container">
+        <div style="font-weight: 700; color:#001E4E; margin-bottom: 10px;"><i class="fas fa-code-branch" style="margin-right: 6px;"></i>Outcome</div>
+        <div class="split-buttons">
+          <!-- Approved path -->
+          <div style="text-align: center;">
+            <div class="split-arrow"><i class="fas fa-check"></i> Approved</div>
+            <div class="approved-box">
+              <i class="fas fa-money-bill-wave" style="margin-right: 4px;"></i> E-Money Processing
+              <div class="processing-sub">CSV generation, Checker review, Disbursement</div>
+            </div>
+          </div>
+          <!-- Rejected path -->
+          <div style="text-align: center;">
+            <div class="split-arrow" style="color:#b91c1c;"><i class="fas fa-times"></i> Rejected</div>
+            <div class="rejected-box">
+              <i class="fas fa-ban" style="margin-right: 6px;"></i> Rejected
+            </div>
+          </div>
+        </div>
+        <div style="font-size:0.75rem; color:#4b5563; margin-top: 8px;">One-direction flow · no loopback</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SECTION 5 : Footer ===== -->
+  <div class="footer-note">
+    Wave EMI Pipeline v5.1 — Current System (April 2026)
+  </div>
+
+  <!-- Implicit guarantee: No loopback arrows, no extra features, strictly top-down, no stack names -->
+</div>
+</body>
+</html>
