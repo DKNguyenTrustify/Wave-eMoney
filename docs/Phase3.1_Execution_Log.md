@@ -714,9 +714,174 @@ Three documents created for parallel execution:
 - **Vinh notified:** Testing guide + sample files shared
 - **All docs created:** DB plan, Binh guide, KAN-26 master plan, infrastructure doc, meeting analysis
 
-### What's Next (Tonight / Tomorrow)
-1. **Create Supabase tables** — run SQL schema in SQL Editor
-2. **Wire Supabase into index.html** — 6 function changes
-3. **Test dual-write** — localStorage + Supabase working together
-4. **Update webhook.js** — server-side Supabase write
-5. **Push to both repos** — auto-deploys to Vercel Pro
+---
+
+## Session 8: Supabase Integration (April 9, 8:00 PM - 9:30 PM)
+
+### Supabase Tables Created (8:00 PM)
+
+- Ran SQL schema in Supabase SQL Editor → "Success. No rows returned"
+- Two tables created: `tickets` (~70 fields) + `activity_log` (5 fields)
+- Indexes: status, company, created_at (tickets), ticket_id, created_at (activity_log)
+- Auto-update trigger on `updated_at`
+- RLS enabled with "Allow all" policy (internal tool)
+- Verified in Table Editor: both tables visible with correct columns
+
+### Dashboard Supabase Integration (8:15 PM — Commit `02c1e7c`)
+
+Added `supabase-js` CDN + client initialization to `index.html`. Modified 6 core functions:
+
+1. **`saveState()`** — Added Supabase dual-write: every ticket upserted to Supabase after localStorage save
+2. **`loadState()`** — Now async. Fetches from Supabase first, falls back to localStorage if empty
+3. **`updateTicket()`** — Added Supabase upsert after local update
+4. **`logActivity()`** — Added Supabase insert to activity_log table with auto-extracted ticket_id
+5. **`generateTicketId()`** — Now uses max ID from state (handles gaps from deleted tickets)
+6. **`initState()`** — Now async, awaits Supabase load before rendering dashboard
+
+**Key design: Dual-write strategy.** Every write goes to BOTH localStorage AND Supabase. If Supabase fails, localStorage still works. Zero downtime risk. Rollback = set `sb = null`.
+
+**First test result:** Demo tickets (TKT-001 Capital Taiyo, TKT-002 GGI Nippon Life) appeared in Supabase Table Editor immediately. Activity log entry also created. Dual-write confirmed working.
+
+### Webhook Supabase Integration (8:30 PM — Commit `54a3e89`)
+
+Created `package.json` with `@supabase/supabase-js` dependency for Vercel serverless functions.
+
+Updated `api/webhook.js`:
+- Imports Supabase client (server-side, uses `SUPABASE_SERVICE_KEY` env var)
+- Generates ticket ID by querying max from Supabase
+- Computes scenario, status, risk_level server-side
+- Writes ticket to Supabase via upsert
+- Creates activity_log entry
+- Returns short dashboard URL (`project-ii0tm.vercel.app/?ticket=TKT-XXX`)
+- Returns `supabase_persisted` flag in response
+
+### Pipeline → Supabase Fix (9:00 PM — Commit `de7756a`)
+
+**Bug discovered:** Email-triggered tickets weren't appearing in Supabase because:
+1. The notification email used a short URL (no base64 ticket data)
+2. The n8n pipeline only sent data via the notification email, never called the webhook
+3. Tickets only existed in n8n execution output until someone clicked a link
+
+**Fix:** Added `helpers.httpRequest()` call in Parse & Validate node that POSTs every ticket to the Vercel webhook. Tickets are now persisted to Supabase server-side, no browser click needed.
+
+**New flow:**
+```
+Email → Outlook → n8n → AI Processing → Parse & Validate
+                                              ├→ POST to webhook → Supabase ✅
+                                              └→ Route → Notification email
+```
+
+### End-to-End Test Results (9:15 PM)
+
+**Test 1: TKT-003 (no attachment)**
+- Company: Kyaw Trading Co. ✅
+- Scenario: MISSING_APPROVAL (no approvers in email) ✅
+- Persisted to Supabase via webhook ✅
+- Sequential ID from DB ✅
+
+**Test 2: TKT-004 (Win's handwriting attachment)**
+- Company: Kyaw Trading Co. ✅
+- Vision: 85% confidence ✅
+- Employee extraction: 4/4 (Ko Zaw Min, Noe Aye, Nyi Ko Ko Maw, Ma Aye Phyu Htet) ✅
+- Amount verification: Email matches document (245,600) ✅
+- Mismatch detection: Gap 94,600 MMK (151,000 vs 245,600) ✅
+- 3-way check working ✅
+- Persisted to Supabase ✅
+- Ticket ID sequential (003 → 004) ✅
+
+### Vercel Pro + GitHub Setup
+
+**Challenge:** yoma-org GitHub seats full (10/10), DKNguyenTrustify denied push access.
+**Solution:** Used Vinh's Personal Access Token to force push code to yoma-org/wave-emi-dashboard.
+**Result:** Both repos synced, Vercel Pro auto-deploys from yoma-org repo.
+
+**Dual-repo workflow (must push to both):**
+```bash
+git push origin main  # DKNguyenTrustify/Wave-eMoney
+git push yoma main    # yoma-org/wave-emi-dashboard (needs Vinh's token)
+```
+
+### Lessons Learned
+
+1. **Outlook `bodyPreview` is truncated (~255 chars).** Must use Raw output mode + `body.content` for full email body. This broke company/approver extraction until fixed.
+
+2. **Outlook "EXTERNAL EMAIL" warnings confuse AI.** Must strip these before sending to Groq. Internal emails (Zaya Labs) don't have this issue.
+
+3. **n8n Microsoft Outlook node doesn't support HTML email.** Plain text with emojis is the practical solution.
+
+4. **Email-triggered tickets need explicit webhook call.** The notification email URL alone doesn't persist data. Pipeline must POST to webhook for server-side persistence.
+
+5. **Supabase `sb_publishable_` key ≠ JWT anon key.** The JS client needs the JWT format (`eyJ...`), found at Settings → API in Supabase dashboard.
+
+6. **Vercel Hobby works fine for development.** Vercel Pro is for team collaboration and production domains. Both can run simultaneously.
+
+7. **Dual-write (localStorage + Supabase) is safe.** Zero risk of data loss — if one fails, the other still works. Easy rollback by setting `sb = null`.
+
+8. **GitHub org seat limits are real.** Workaround: PAT-based push for non-members, or add as repo collaborator (not org member).
+
+---
+
+## Final Status (April 9, 9:30 PM)
+
+### What's Live
+
+| Component | URL / Location | Status |
+|---|---|---|
+| **Vercel Pro** | `project-ii0tm.vercel.app` | LIVE ✅ |
+| **Vercel Hobby** | `wave-emi-dashboard.vercel.app` | LIVE (legacy) ✅ |
+| **Supabase** | `dicluyfkfqlqjwqikznl.supabase.co` | LIVE — 4 tickets, 1 activity log ✅ |
+| **Pipeline v6** | n8n Cloud | LIVE — Outlook + Supabase persistence ✅ |
+| **GitHub (DK)** | `DKNguyenTrustify/Wave-eMoney` | Synced ✅ |
+| **GitHub (team)** | `yoma-org/wave-emi-dashboard` | Synced ✅ |
+
+### What Works End-to-End
+
+```
+External Email → emoney@zeyalabs.ai (Outlook)
+       → n8n Pipeline v6 (Groq text + Vision OCR + Gemini PDF)
+              → Webhook → Supabase PostgreSQL
+              → Notification Email (emoji format)
+       → Dashboard (loads from Supabase)
+              → Multiple users see same tickets
+              → Confidence badges + mismatch detection
+              → "Asked Client" status for amount mismatches
+```
+
+### Day 9 Summary (April 9, 2026)
+
+**Morning sprint (8:45-9:45):**
+- "Asked Client" mismatch status shipped
+- Confidence tiered badges shipped (Minh's question)
+- Mismatch banner bug fix
+
+**Meeting (10:00):**
+- Go-live target: Wednesday April 15 (board meeting April 16)
+- Go-live = manual (forwarded emails, human review)
+- Only 3 features needed: batch/unbatch, audit form, finance exemption
+- Myanmar OCR NOT a go-live blocker
+
+**Post-meeting (10:30-12:30):**
+- Tracy intel: Rita prefers AWS by familiarity, Huy owns infra
+- Pipeline v6: Gmail → Outlook migration (6 fixes, 12 features)
+- Infrastructure recommendation (4 platforms)
+- Power Automate research (stay on n8n)
+
+**Afternoon (1:00-6:00):**
+- Pipeline v6 fully tested (email extraction, notification, internal filter)
+- Vercel Pro deployed (project-ii0tm.vercel.app)
+- KAN-26 planning (3 docs: DB plan, Binh guide, master plan)
+- Binh onboarded with codebase guide
+
+**Evening (8:00-9:30):**
+- Supabase tables created
+- Dashboard wired to Supabase (dual-write)
+- Webhook with server-side Supabase persistence
+- Pipeline auto-persists tickets (no click needed)
+- End-to-end test: TKT-003 + TKT-004 both in Supabase
+
+### What's Next (April 10)
+1. Test with Win/Vinh (share testing guide)
+2. Batch/unbatch feature (need spec from Win)
+3. Audit confirmation form
+4. Finance exemption list
+5. Polish for go-live Wednesday
