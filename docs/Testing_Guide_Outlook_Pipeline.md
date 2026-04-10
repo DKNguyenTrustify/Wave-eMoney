@@ -1,8 +1,22 @@
 # Testing Guide — EMI Pipeline v6 (Outlook)
 
-**For:** Vinh, Win, team members
-**Updated:** April 9, 2026
+**For:** Vinh, Win, Binh, team members
+**Updated:** April 10, 2026
 **Control Mailbox:** emoney@zeyalabs.ai
+
+---
+
+## Important: Which URL to Use
+
+| Environment | URL | Use For |
+|---|---|---|
+| **Production (Vercel Pro)** | **https://project-ii0tm.vercel.app** | Daily use, testing, demos |
+| Legacy (Vercel Hobby) | https://wave-emi-dashboard.vercel.app | Old link, still works but use Pro |
+| **GitHub Repo (Team)** | **https://github.com/yoma-org/wave-emi-dashboard** | Code, docs, pipelines |
+| GitHub Repo (DK personal) | https://github.com/DKNguyenTrustify/Wave-eMoney | Same code, DK's backup |
+| Supabase (Database) | https://supabase.com/dashboard/project/dicluyfkfqlqjwqikznl | DB admin (Tin, DK) |
+
+**Always use the Vercel Pro URL** (`project-ii0tm.vercel.app`) for testing and demos.
 
 ---
 
@@ -146,7 +160,8 @@ To reset dashboard data: Press **Ctrl+Shift+R**
 - Non-disbursement emails are silently dropped (no ticket, no notification)
 - Internal Yoma/Wave emails are filtered unless subject contains "disbursement", "payroll", or "salary"
 - Notification emails sent FROM emoney@zeyalabs.ai back to the original sender
-- All data currently stored in browser localStorage (database coming soon)
+- All data persisted in Supabase PostgreSQL (shared across all browsers)
+- Attachments stored in Supabase Storage (viewable in ticket modal — click "Original Attachment")
 
 ---
 

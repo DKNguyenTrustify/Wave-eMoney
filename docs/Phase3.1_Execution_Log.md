@@ -879,9 +879,117 @@ External Email → emoney@zeyalabs.ai (Outlook)
 - Pipeline auto-persists tickets (no click needed)
 - End-to-end test: TKT-003 + TKT-004 both in Supabase
 
-### What's Next (April 10)
-1. Test with Win/Vinh (share testing guide)
-2. Batch/unbatch feature (need spec from Win)
-3. Audit confirmation form
-4. Finance exemption list
-5. Polish for go-live Wednesday
+---
+
+## Session 9: Supabase Storage — Attachment Preservation (April 10, 8:30 - 9:30 AM)
+
+### Problem Statement (from Binh)
+Binh raised: "How do we store attachments?" The original documents (bank slips, payroll images) were processed by AI but then discarded. Users couldn't see the original on the dashboard to compare with AI extraction.
+
+### Professional Pattern Implemented
+**Database stores URL reference, files live in object storage.**
+
+Same pattern used by AWS (RDS + S3), Google (Cloud SQL + GCS), and every enterprise system:
+- Supabase Storage = S3-compatible object storage
+- Tickets table stores only the URL (~100 bytes)
+- Original file stored in Storage bucket (~500KB)
+- Database stays lean, files are served directly via CDN
+
+### Changes Made (4 components)
+
+**1. Supabase Storage Bucket (Dashboard UI)**
+- Bucket name: `attachments`
+- Public: Yes (dashboard can display images via URL)
+- File size limit: 10MB
+- Allowed MIME types: image/jpeg, image/png, application/pdf
+
+**2. Database Columns (SQL)**
+```sql
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS attachment_url TEXT;
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS attachment_mime_type TEXT;
+```
+
+**3. Pipeline Parse & Validate (Commit `f2d9cb3`)**
+- Added 3 fields to webhook POST body:
+  - `attachment_base64` — raw file data from pipeline
+  - `attachment_mime_type` — image/jpeg, image/png, or application/pdf
+  - `attachment_filename` — original filename
+
+**4. Webhook api/webhook.js (Commit `f2d9cb3`)**
+- Receives attachment_base64 from pipeline
+- Converts base64 → Buffer
+- Uploads to Supabase Storage: `attachments/{TKT-ID}/attachment.{ext}`
+- Gets back public URL
+- Saves URL in ticket record (not the file itself)
+- Non-blocking: if upload fails, ticket still saves
+
+**5. Dashboard index.html (Commit `f2d9cb3`)**
+- Added collapsible "Original Attachment" section in ticket modal
+- Images: renders `<img>` tag with Supabase URL
+- PDFs: renders clickable link to open in new tab
+- Lazy loading for performance
+
+### Test Result — TKT-005
+
+| Check | Result |
+|---|---|
+| Supabase Storage | `attachments/TKT-005/attachment.jpg` exists ✅ |
+| Ticket DB | `attachment_url` populated with public URL ✅ |
+| `attachment_mime_type` | `image/jpeg` ✅ |
+| Dashboard preview | Win's handwriting image visible in ticket modal ✅ |
+| URL accessible | Direct link opens image in browser ✅ |
+| Employee extraction | 4/4 names + amounts correct (same as before) ✅ |
+| Non-attachment tickets | `attachment_url` = NULL (expected) ✅ |
+
+### Lessons Learned
+
+1. **Never store files as base64 in database.** Binh was right — it bloats the DB. Use object storage + URL reference.
+2. **Supabase Pro includes 100GB storage.** At 500 emails/month × 1MB average = 60 years of runway.
+3. **Public buckets with MIME restrictions + size limits** = secure enough for internal tools while allowing direct URL access.
+4. **The "click to expand" pattern** prevents large images from breaking the modal layout.
+
+---
+
+## Final Status (April 10, 9:30 AM)
+
+### Full Stack — Everything Working
+
+```
+Email → emoney@zeyalabs.ai (Outlook)
+  → n8n Pipeline v6
+    → Groq AI (text extraction)
+    → Groq Vision (image OCR) / Gemini (PDF OCR)
+    → Employee extraction (names, phones, amounts)
+    → Parse & Validate (authority matrix, cross-validation)
+    → POST webhook → Supabase PostgreSQL (ticket data)
+                   → Supabase Storage (original attachment)
+  → Notification email (emoji format, client-facing)
+  → Dashboard (loads from Supabase)
+    → AI extraction results
+    → Original attachment preview (side by side)
+    → Confidence badges, mismatch detection
+    → Multiple users see same data
+```
+
+### Go-Live Readiness (Wednesday April 15)
+
+| Requirement | Status |
+|---|---|
+| Email intake (Outlook) | ✅ Working |
+| AI text extraction | ✅ Working |
+| Vision OCR (image + PDF) | ✅ Working |
+| Myanmar handwriting | ✅ Validated (100% names) |
+| Amount mismatch detection | ✅ Working (3-way check) |
+| Database persistence | ✅ Supabase PostgreSQL |
+| Attachment storage | ✅ Supabase Storage |
+| Multi-user dashboard | ✅ Shared data via Supabase |
+| Notification email | ✅ Professional emoji format |
+| Vercel Pro hosting | ✅ project-ii0tm.vercel.app |
+| Team repo | ✅ yoma-org/wave-emi-dashboard |
+
+### Remaining for Go-Live
+1. Batch/unbatch feature (need spec from Win)
+2. Audit confirmation form (need template from Win/Rita)
+3. Finance exemption list (need client list from Thet Hnin Wai)
+4. Update n8n pipeline to match v6 JSON (Outlook warning strip, internal filter)
+5. Test with external sender (Outlook warning strip)
