@@ -39,6 +39,45 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing required field: company' });
   }
 
+  // === STEP 0: Idempotency check ===
+  // If n8n retries this call (network blip, transient error), don't create a duplicate ticket.
+  // Check if the same message_id was already processed.
+  if (data.message_id) {
+    try {
+      const { data: existingEmail } = await supabase
+        .from('ticket_emails')
+        .select('ticket_id')
+        .eq('message_id', data.message_id)
+        .limit(1)
+        .maybeSingle();
+
+      if (existingEmail && existingEmail.ticket_id) {
+        const { data: existingTicket } = await supabase
+          .from('tickets_v2')
+          .select('ticket_number, company, amount_requested, scenario')
+          .eq('id', existingEmail.ticket_id)
+          .single();
+
+        if (existingTicket) {
+          console.log(`Idempotent replay: message_id ${data.message_id} already processed as ${existingTicket.ticket_number}`);
+          return res.status(200).json({
+            success: true,
+            ticket_id: existingTicket.ticket_number,
+            dashboard_url: `https://project-ii0tm.vercel.app/?ticket=${existingTicket.ticket_number}`,
+            idempotent: true,
+            message: `Already processed email ${data.message_id} as ${existingTicket.ticket_number}`,
+            company: existingTicket.company,
+            amount: existingTicket.amount_requested,
+            scenario: existingTicket.scenario,
+          });
+        }
+      }
+    } catch (e) {
+      // Non-blocking — if idempotency check fails, fall through to create
+      console.warn('Idempotency check failed (falling through):', e.message);
+    }
+  }
+
   // === STEP 1: Build core ticket + insert into tickets_v2 ===
   const approvals = data.approvals || [];
   const required = data.required_approvals || ['Sales HOD', 'Finance Manager'];
