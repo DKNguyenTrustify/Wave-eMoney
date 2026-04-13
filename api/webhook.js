@@ -5,14 +5,34 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY || ''
 );
 
+// Whitelist of allowed origins for CORS (replaces wildcard *)
+const ALLOWED_ORIGINS = [
+  'https://project-ii0tm.vercel.app',
+  'https://wave-emi-dashboard.vercel.app',
+  'https://tts-test.app.n8n.cloud'
+];
+
 export default async function handler(req, res) {
-  // CORS headers for n8n Cloud
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  // CORS — whitelist instead of wildcard
+  const origin = req.headers.origin || '';
+  if (ALLOWED_ORIGINS.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Webhook-Secret');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+
+  // Webhook authentication — OPTIONAL until WEBHOOK_SECRET env var is set
+  // This lets us deploy the code change safely, then enforce auth via env var
+  const expectedSecret = process.env.WEBHOOK_SECRET;
+  if (expectedSecret) {
+    const providedSecret = req.headers['x-webhook-secret'];
+    if (providedSecret !== expectedSecret) {
+      return res.status(401).json({ error: 'Unauthorized — invalid or missing webhook secret' });
+    }
+  }
 
   const data = req.body;
   if (!data || !data.company) {
@@ -116,10 +136,10 @@ export default async function handler(req, res) {
           .upload(filePath, buffer, { contentType: mime, upsert: true });
 
         if (!uploadError) {
-          const { data: urlData } = supabase.storage
-            .from('attachments')
-            .getPublicUrl(filePath);
-          attachmentUrl = urlData.publicUrl;
+          // SECURITY: Store the file PATH, not a public URL.
+          // Dashboard generates a signed URL (1h expiry) on demand.
+          // Bucket is private — public URL would 404 anyway.
+          attachmentUrl = filePath;  // e.g., "TKT-019/payroll.pdf"
 
           // Insert attachment record
           const { data: attRecord } = await supabase
@@ -128,7 +148,7 @@ export default async function handler(req, res) {
               ticket_id: ticketId,
               file_name: originalName,
               mime_type: mime,
-              storage_url: attachmentUrl,
+              storage_url: attachmentUrl,  // path, not URL
               size_bytes: buffer.length,
             })
             .select('id')

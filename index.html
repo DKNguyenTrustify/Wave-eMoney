@@ -694,7 +694,9 @@ function saveState(){
       // Write to tickets_v2 using UUID
       const uuid = t._uuid;
       delete copy._uuid;
-      sb.from('tickets_v2').upsert({id: uuid, ...copy}, {onConflict:'id', ignoreDuplicates: false}).then(({error})=>{
+      // Use update() not upsert() — RLS allows anon UPDATE only, not INSERT.
+      // Webhook (service_role) handles all INSERTs. Tickets in state always have _uuid (loaded from Supabase) so they exist.
+      sb.from('tickets_v2').update(copy).eq('id', uuid).then(({error})=>{
         if(error) console.warn('Supabase sync:', error.message);
       });
     }
@@ -1005,6 +1007,49 @@ function showToast(msg, type){
   t.classList.add('toast-'+cls, 'show');
   clearTimeout(t._timer);
   t._timer = setTimeout(()=>t.classList.remove('show'), 3000);
+}
+
+// Load attachment preview via signed URL (private bucket)
+async function loadAttachmentPreview(ticketId, previewId, isPdf){
+  const previewEl = document.getElementById(previewId);
+  if(!previewEl) return;
+  // Toggle visibility
+  if(previewEl.style.display === 'block'){
+    previewEl.style.display = 'none';
+    return;
+  }
+  previewEl.style.display = 'block';
+  // If already loaded with content (not "Loading…"), don't reload
+  if(previewEl.dataset.loaded === '1') return;
+
+  const ticket = state.tickets[ticketId];
+  if(!ticket || !ticket.attachment_url){ previewEl.innerHTML = 'No attachment found.'; return; }
+
+  // Legacy public URL — render directly
+  if(ticket.attachment_url.startsWith('http')){
+    previewEl.dataset.loaded = '1';
+    return;
+  }
+
+  // New format: storage path. Generate signed URL.
+  if(!sb){
+    previewEl.innerHTML = '<span style="color:var(--danger)">Cannot load attachment (Supabase unavailable)</span>';
+    return;
+  }
+  try {
+    const {data, error} = await sb.storage.from('attachments').createSignedUrl(ticket.attachment_url, 3600);
+    if(error || !data){
+      previewEl.innerHTML = '<span style="color:var(--danger)">Failed to load attachment: '+(error?.message||'unknown')+'</span>';
+      return;
+    }
+    const url = data.signedUrl;
+    previewEl.innerHTML = isPdf
+      ? '<a href="'+url+'" target="_blank" rel="noopener" style="color:var(--blue);font-weight:600">\uD83D\uDCC4 Open PDF attachment in new tab</a><div style="font-size:11px;color:var(--muted);margin-top:4px">Link expires in 1 hour</div>'
+      : '<img src="'+url+'" style="max-width:100%;border-radius:8px;border:1px solid var(--border);margin-top:4px" alt="Original attachment" loading="lazy"/>';
+    previewEl.dataset.loaded = '1';
+  } catch(e){
+    previewEl.innerHTML = '<span style="color:var(--danger)">Error loading attachment: '+e.message+'</span>';
+  }
 }
 
 // ─── NAVIGATION ───────────────────────────────────────────────────────────────
@@ -2759,18 +2804,20 @@ function openTicketDetail(ticketId){
     </div>`;
   }
 
-  // Original Attachment Preview (from Supabase Storage)
+  // Original Attachment Preview (from Supabase Storage — signed URL on demand)
   if(t.attachment_url){
     const isPdf = (t.attachment_mime_type||'').includes('pdf');
+    const isLegacyUrl = t.attachment_url.startsWith('http');
+    const previewId = 'att-preview-'+t.id;
     html += `<div style="background:#f0f4fa;border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:16px">
-      <div style="cursor:pointer;font-weight:700;color:var(--navy);font-size:14px" onclick="var body=this.nextElementSibling;body.style.display=body.style.display==='none'?'block':'none'">
+      <div style="cursor:pointer;font-weight:700;color:var(--navy);font-size:14px" onclick="loadAttachmentPreview('${t.id}','${previewId}',${isPdf})">
         \uD83D\uDCCE Original Attachment <span style="font-weight:400;color:var(--muted);font-size:12px">(click to ${isPdf?'view link':'expand'})</span>
       </div>
-      <div style="margin-top:10px;display:none">
-        ${isPdf
+      <div id="${previewId}" style="margin-top:10px;display:none">
+        ${isLegacyUrl ? (isPdf
           ? '<a href="'+t.attachment_url+'" target="_blank" rel="noopener" style="color:var(--blue);font-weight:600">\uD83D\uDCC4 Open PDF attachment in new tab</a>'
-          : '<img src="'+t.attachment_url+'" style="max-width:100%;border-radius:8px;border:1px solid var(--border);margin-top:4px" alt="Original attachment" loading="lazy"/>'
-        }
+          : '<img src="'+t.attachment_url+'" style="max-width:100%;border-radius:8px;border:1px solid var(--border);margin-top:4px" alt="Original attachment" loading="lazy"/>')
+        : '<div style="color:var(--muted);font-style:italic">Loading\u2026</div>'}
       </div>
     </div>`;
   }
