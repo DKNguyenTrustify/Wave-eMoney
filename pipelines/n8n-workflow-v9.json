@@ -3,13 +3,28 @@
   "nodes": [
     {
       "parameters": {
+        "content": "## EMI Pipeline — Two Intake Paths\n\n**INTAKE: Outlook Mailbox (production)**\nPolls `emoney@zeyalabs.ai` for new client emails. This is the real production trigger.\n\n**INTAKE: Manual Test (POST JSON)**\nAccepts POST to `/emi-intake` with a JSON email payload. Used for:\n- Testing without sending real emails\n- Replaying problematic emails for debugging\n- Integration tests / CI\n- Manual ticket injection if email pipeline breaks\n\n**Both paths feed into:**\nPrepare for AI → Groq Text Extract → Vision Process (dual Groq/Gemini) → Employee List Extract → AI Parse & Validate → POST to Vercel webhook (`/api/webhook.js`) → Send Outlook Notification\n\n**Note: The 'webhook' node here (intake) is DIFFERENT from the Vercel webhook (persistence).**\n- Intake webhook = entry INTO n8n\n- Vercel webhook = exit OUT of n8n (persists to Supabase)",
+        "height": 420,
+        "width": 480
+      },
+      "id": "sticky-note-architecture",
+      "name": "Pipeline Architecture Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -150,
+        200
+      ]
+    },
+    {
+      "parameters": {
         "httpMethod": "POST",
         "path": "emi-intake",
         "responseMode": "responseNode",
         "options": {}
       },
       "id": "webhook-trigger",
-      "name": "Webhook Trigger",
+      "name": "INTAKE: Manual Test (POST JSON)",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
@@ -28,7 +43,7 @@
         }
       },
       "id": "outlook-trigger",
-      "name": "Outlook Trigger",
+      "name": "INTAKE: Outlook Mailbox (production)",
       "type": "n8n-nodes-base.microsoftOutlookTrigger",
       "typeVersion": 1,
       "position": [
@@ -202,7 +217,7 @@
     }
   ],
   "connections": {
-    "Webhook Trigger": {
+    "INTAKE: Manual Test (POST JSON)": {
       "main": [
         [
           {
@@ -213,7 +228,7 @@
         ]
       ]
     },
-    "Outlook Trigger": {
+    "INTAKE: Outlook Mailbox (production)": {
       "main": [
         [
           {
