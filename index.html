@@ -69,8 +69,11 @@ main{max-width:1100px;margin:0 auto;padding:28px 24px;}
 .card-title{font-weight:700;font-size:15px;display:flex;align-items:center;gap:8px;}
 .card-accent{border-top:3px solid var(--blue);}.card-accent.danger{border-top-color:var(--danger);}.card-accent.success{border-top-color:var(--success);}.card-accent.warn{border-top-color:var(--warn);}
 
-/* SUMMARY ROW — 5 columns for dashboard metrics */
+/* SUMMARY ROW — 5 columns (legacy) or 3 columns (KAN-31 #5) for dashboard metrics */
 .summary-row-5{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:24px;}
+.summary-row-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px;}
+.summary-row-3 .stat-card{cursor:pointer;user-select:none;}
+.stat-card.active-filter{box-shadow:0 0 0 3px var(--blue);transform:translateY(-2px);}
 .stat-card{background:var(--surface);border-radius:var(--radius);padding:22px 20px;border:1px solid var(--border);box-shadow:var(--shadow);border-left:4px solid var(--border);transition:all var(--transition-fast);position:relative;overflow:hidden;}
 .stat-card:hover{box-shadow:var(--shadow-md);transform:translateY(-1px);}
 .stat-card::after{content:'';position:absolute;top:0;right:0;width:60px;height:60px;border-radius:50%;opacity:.06;transform:translate(20px,-20px);}
@@ -356,8 +359,17 @@ textarea{resize:vertical;min-height:120px;}
 .csv-table tr:last-child td{border-bottom:none;}
 .csv-table tr:hover td{background:#f8faff;}
 
+/* KAN-31 #2: eMoney simplified view — hide tabs except Dashboard */
+body.emoney-view #nav-emails,
+body.emoney-view #nav-finance,
+body.emoney-view #nav-emoney,
+body.emoney-view .role-badge,
+body.emoney-view #role-select{display:none !important;}
+body.emoney-view .mobile-menu .nav-btn:not(:first-child){display:none !important;}
+
 @media(max-width:700px){
   .summary-row-5{grid-template-columns:1fr 1fr;}
+  .summary-row-3{grid-template-columns:1fr;}
   .grid-2,.grid-3,.results-grid{grid-template-columns:1fr;}
   .nav-links{display:none !important;}
   .hamburger{display:block;}
@@ -375,7 +387,7 @@ textarea{resize:vertical;min-height:120px;}
 }
 </style>
 </head>
-<body>
+<body class="emoney-view">
 
 <nav>
   <div class="nav-logo"><span>W</span> Wave eMoney</div>
@@ -459,6 +471,8 @@ const LS_TICKETS = 'emi_tickets';
 const LS_ACTIVITY = 'emi_activity';
 const LS_PARSED = 'emi_parsed';
 const LS_ROLE = 'emi_role';
+const LS_FILTER = 'emi_active_filter';
+const LS_SEARCH = 'emi_search_query';
 
 // ─── SUPABASE CLIENT ────────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://dicluyfkfqlqjwqikznl.supabase.co';
@@ -516,6 +530,8 @@ let state = {
   activityLog: [],
   parsedEmails: new Set(),
   currentRole: 'Intake / Maker',
+  activeFilter: 'all',   // KAN-31 #6: 'all' | 'mismatch' | 'finance'
+  searchQuery: '',       // KAN-31 #7: ticket ID search
 };
 // Runtime-only storage for bank slip image data URLs (not persisted to localStorage)
 const slipDataUrls = {};
@@ -662,6 +678,8 @@ function saveState(){
     localStorage.setItem(LS_ACTIVITY, JSON.stringify(state.activityLog));
     localStorage.setItem(LS_PARSED, JSON.stringify([...state.parsedEmails]));
     localStorage.setItem(LS_ROLE, state.currentRole);
+    localStorage.setItem(LS_FILTER, state.activeFilter || 'all');
+    localStorage.setItem(LS_SEARCH, state.searchQuery || '');
   } catch(e){ /* non-blocking */ }
   // Supabase dual-write to tickets_v2 (non-blocking)
   if(sb){
@@ -739,6 +757,10 @@ async function loadState(){
     if(p) state.parsedEmails = new Set(JSON.parse(p));
     const r = localStorage.getItem(LS_ROLE);
     if(r) state.currentRole = r;
+    const f = localStorage.getItem(LS_FILTER);
+    if(f) state.activeFilter = f;
+    const sq = localStorage.getItem(LS_SEARCH);
+    if(sq !== null) state.searchQuery = sq;
   } catch(e){ /* non-blocking */ }
 }
 
@@ -1124,33 +1146,82 @@ function cycleRole(){
 
 // ─── PAGE: DASHBOARD ──────────────────────────────────────────────────────────
 
+// KAN-31 #6: toggle card filter (clicking same card again clears it)
+function setCardFilter(filter){
+  state.activeFilter = (state.activeFilter === filter) ? 'all' : filter;
+  saveState();
+  renderDashboard();
+}
+
+// KAN-31 #7: live search on ticket ID
+function handleSearchInput(value){
+  state.searchQuery = value;
+  saveState();
+  renderDashboard();
+  // Restore focus + caret position after re-render (innerHTML wipes focus)
+  setTimeout(function(){
+    const input = document.getElementById('ticket-search');
+    if(input){
+      input.focus();
+      try { input.setSelectionRange(value.length, value.length); } catch(e){}
+    }
+  }, 0);
+}
+
+// KAN-31 #6+#7: clear both filters (used by empty-state button)
+function clearDashboardFilters(){
+  state.activeFilter = 'all';
+  state.searchQuery = '';
+  saveState();
+  renderDashboard();
+}
+
 function renderDashboard(){
   const el = document.getElementById('page-dashboard');
-  const tickets = sortTickets(allTickets(), sortColumn, sortDirection);
-  const newEmails = MOCK_EMAILS.length - state.parsedEmails.size;
-  const pending = countByStatus('PENDING_FINANCE') + countByStatus('AWAITING_EMPLOYEE_LIST');
-  const ready = countByStatus('READY_FOR_CHECKER');
-  const inProg = ['PREPARING_FILES','WITH_CHECKER','GROUP_MAPPING','DISBURSING','CLOSING'].reduce((n,s)=>n+countByStatus(s),0);
-  const completed = countByStatus('COMPLETED') + countByStatus('SENT_TO_CHECKER');
-  const mismatches = allTickets().filter(t=>t.has_mismatch).length;
-  const highRisk = allTickets().filter(t=>t.risk_level==='HIGH').length;
-  const visionProcessed = allTickets().filter(t=>t.vision_parsed).length;
+  const allT = allTickets();
+  // KAN-31 #5: 3 stat cards (replaces 5 — New Emails / Pending / Ready / Processing / Completed)
+  const allEmails = allT.length;
+  const mismatches = allT.filter(t=>t.has_mismatch || t.scenario==='AMOUNT_MISMATCH').length;
+  const readyForFinance = allT.filter(t=>t.status==='PENDING_FINANCE' || t.status==='AWAITING_EMPLOYEE_LIST').length;
+  const activeFilter = state.activeFilter || 'all';
+  const searchQuery = state.searchQuery || '';
+
+  // KAN-31 #6+#7: filter ticket list by active card + search query
+  let filteredT = allT;
+  if(activeFilter === 'mismatch') filteredT = filteredT.filter(t=>t.has_mismatch || t.scenario==='AMOUNT_MISMATCH');
+  else if(activeFilter === 'finance') filteredT = filteredT.filter(t=>t.status==='PENDING_FINANCE' || t.status==='AWAITING_EMPLOYEE_LIST');
+  if(searchQuery) filteredT = filteredT.filter(t=>(t.id||'').toLowerCase().includes(searchQuery.toLowerCase()));
+  const tickets = sortTickets(filteredT, sortColumn, sortDirection);
 
   let html = `
     <div class="section-title">\uD83C\uDF0A eMoney Dashboard</div>
-    <div class="summary-row-5">
-      <div class="stat-card accent"><div class="stat-label">New Emails</div><div class="stat-value">${newEmails}</div><div class="stat-sub">awaiting intake</div></div>
-      <div class="stat-card ${pending>0?'warn':''}"><div class="stat-label">Pending</div><div class="stat-value">${pending}</div><div class="stat-sub">need action</div></div>
-      <div class="stat-card ${ready>0?'ok':'blue'}"><div class="stat-label">Ready</div><div class="stat-value">${ready}</div><div class="stat-sub">for checker</div></div>
-      <div class="stat-card ${inProg>0?'blue':''}"><div class="stat-label">Processing</div><div class="stat-value">${inProg}</div><div class="stat-sub">in pipeline</div></div>
-      <div class="stat-card ok"><div class="stat-label">Completed</div><div class="stat-value">${completed}</div><div class="stat-sub">disbursed</div></div>
+    <div class="summary-row-3">
+      <div class="stat-card accent ${activeFilter==='all'?'active-filter':''}" onclick="setCardFilter('all')">
+        <div class="stat-label">All Emails</div><div class="stat-value">${allEmails}</div><div class="stat-sub">total tickets</div>
+      </div>
+      <div class="stat-card ${mismatches>0?'warn':''} ${activeFilter==='mismatch'?'active-filter':''}" onclick="setCardFilter('mismatch')">
+        <div class="stat-label">Mismatch</div><div class="stat-value">${mismatches}</div><div class="stat-sub">need review</div>
+      </div>
+      <div class="stat-card ${readyForFinance>0?'ok':'blue'} ${activeFilter==='finance'?'active-filter':''}" onclick="setCardFilter('finance')">
+        <div class="stat-label">Ready for Finance</div><div class="stat-value">${readyForFinance}</div><div class="stat-sub">awaiting approval</div>
+      </div>
     </div>
   `;
 
-  if(tickets.length === 0){
+  if(tickets.length === 0 && allT.length === 0){
     html += '<div class="card"><div class="empty-state"><div class="empty-state-icon">\uD83D\uDCE7</div><h3>No tickets yet</h3><p>Head over to Ticket List to parse your first disbursement request and create a ticket.</p><button class="btn btn-primary" onclick="showPage(\'emails\')">Go to Ticket List</button></div></div>';
+  } else if(tickets.length === 0){
+    // filtered to empty but tickets exist
+    html += `<div class="card"><div class="card-header" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+        <div class="card-title">All Tickets</div>
+        <input type="text" id="ticket-search" placeholder="\uD83D\uDD0D Search ticket ID..." value="${searchQuery.replace(/"/g,'&quot;')}" oninput="handleSearchInput(this.value)" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;width:220px;max-width:100%"/>
+      </div>
+      <div class="empty-state" style="padding:40px 20px"><div class="empty-state-icon">\uD83D\uDD0D</div><h3>No tickets match your filter</h3><p>Try adjusting the card filter or search query.</p><button class="btn btn-primary" onclick="clearDashboardFilters()">Clear filters</button></div></div>`;
   } else {
-    html += `<div class="card"><div class="card-header"><div class="card-title">All Tickets</div></div>
+    html += `<div class="card"><div class="card-header" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+        <div class="card-title">All Tickets</div>
+        <input type="text" id="ticket-search" placeholder="\uD83D\uDD0D Search ticket ID..." value="${searchQuery.replace(/"/g,'&quot;')}" oninput="handleSearchInput(this.value)" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;width:220px;max-width:100%"/>
+      </div>
       <div class="table-scroll"><table class="ticket-table"><thead><tr>
         ${sortHeader('ID','id')}${sortHeader('Created','created_at')}${sortHeader('Company','company')}<th>Type</th>${sortHeader('Amount','amount_requested')}
         <th>Vision</th><th>Track A</th><th>Track B</th>${sortHeader('Status','status')}${sortHeader('Risk','risk_level')}
@@ -2946,6 +3017,13 @@ function openTicketDetail(ticketId){
 // ─── KEYBOARD SHORTCUT ────────────────────────────────────────────────────────
 document.addEventListener('keydown', function(e){
   if(e.ctrlKey && e.shiftKey && e.key === 'R'){ e.preventDefault(); resetDemo(); }
+  // KAN-31 #2: Ctrl+Shift+D toggles eMoney simplified view vs full dev view
+  if(e.ctrlKey && e.shiftKey && (e.key === 'D' || e.key === 'd')){
+    e.preventDefault();
+    document.body.classList.toggle('emoney-view');
+    const isClean = document.body.classList.contains('emoney-view');
+    showToast(isClean ? 'eMoney view (clean)' : 'Dev view (all tabs visible)', 'info');
+  }
   if(e.key === 'Escape') document.querySelectorAll('.modal-overlay.open').forEach(function(m){m.classList.remove('open');});
 });
 
