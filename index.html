@@ -3044,7 +3044,8 @@ const RETURN_EMAIL_WEBHOOK = 'https://tts-test.app.n8n.cloud/webhook/return-to-c
 let _returnPreviewTicketId = null;
 
 // Wave 3D-B (Option B): opens preview modal instead of immediate send
-function returnToClient(ticketId){
+// KAN-36: accepts optional prefillReason — used by missing-data warning panel to seed the reason textarea
+function returnToClient(ticketId, prefillReason){
   const t = state.tickets[ticketId];
   if(!t) return;
 
@@ -3059,10 +3060,32 @@ function returnToClient(ticketId){
   document.getElementById('return-preview-ticket').textContent = t.id + ' \u00b7 ' + (t.company || 'Unknown company');
   document.getElementById('return-preview-to').textContent = t.from_email;
   document.getElementById('return-preview-subject').textContent = subjectLine;
-  document.getElementById('return-reason-input').value = '';
+  document.getElementById('return-reason-input').value = prefillReason || '';
   document.getElementById('return-preview-modal').classList.add('open');
-  // Auto-focus the reason textarea
-  setTimeout(function(){ const ta = document.getElementById('return-reason-input'); if(ta) ta.focus(); }, 50);
+  // Auto-focus the reason textarea (cursor at end if prefilled, ready to type if empty)
+  setTimeout(function(){
+    const ta = document.getElementById('return-reason-input');
+    if(ta){ ta.focus(); if(prefillReason) ta.setSelectionRange(prefillReason.length, prefillReason.length); }
+  }, 50);
+}
+
+// KAN-36: entry point from missing-data warning panel — pre-fills reason with field list
+function returnToClientWithMissing(ticketId){
+  const t = state.tickets[ticketId];
+  if(!t) return;
+  const k36 = kan36Completeness(t);
+  const parts = [];
+  parts.push('Dear ' + (t.company || 'Client') + ' team,');
+  parts.push('');
+  parts.push('To proceed with your disbursement request, we need the following information:');
+  parts.push('');
+  k36.missing.forEach(function(m){ parts.push('  \u2022 ' + m); });
+  if(k36.hasMismatch){
+    parts.push('  \u2022 Amount on email vs document does not match — please verify and resend');
+  }
+  parts.push('');
+  parts.push('Please reply with the corrected details. Reference ticket: ' + t.id);
+  returnToClient(ticketId, parts.join('\n'));
 }
 
 function closeReturnPreview(){
@@ -3351,6 +3374,28 @@ function openTicketDetail(ticketId){
       <strong style="color:${isLow?'#dc2626':'#92400e'}">${isLow?'Low':'Moderate'} AI Confidence (${confPct}%)</strong>
       <div style="margin-top:4px;color:${isLow?'#991b1b':'#78350f'}">${isLow?'Recommend uploading employee list manually to ensure accuracy.':'Please verify extracted employee data before submitting.'}</div>
     </div>`;
+  }
+
+  // KAN-36: "Inform client for missing data" warning panel
+  // Shown when: NOT already returned/approved AND (missing fields OR amount mismatch)
+  if(!alreadyApproved && !alreadyReturned){
+    const k36w = kan36Completeness(t);
+    if(k36w.missing.length > 0 || k36w.hasMismatch){
+      html += '<div style="background:#fef3c7;border:2px solid #fde68a;border-radius:8px;padding:14px 18px;margin-bottom:16px">';
+      html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">';
+      html += '<div style="flex:1;min-width:240px">';
+      html += '<strong style="color:#92400e;font-size:14px">\u26A0\uFE0F Inform client for missing data</strong>';
+      html += '<div style="font-size:12px;color:#78350f;margin-top:4px">This ticket cannot generate a Finance CSV until the following are resolved:</div>';
+      html += '<ul style="margin:8px 0 0 0;padding-left:22px;color:#78350f;font-size:13px">';
+      k36w.missing.forEach(function(m){
+        const isSoft = (m === 'Cost Center');
+        html += '<li>' + m + (isSoft ? ' <span style="font-size:11px;color:#a16207">(optional &mdash; won\'t block CSV)</span>' : '') + '</li>';
+      });
+      if(k36w.hasMismatch) html += '<li><strong>Amount mismatch</strong> between email and document &mdash; verify with client</li>';
+      html += '</ul></div>';
+      html += '<button class="btn btn-outline" style="color:#92400e;border-color:#fde68a;background:#fff;font-size:13px;padding:8px 14px;white-space:nowrap" onclick="returnToClientWithMissing(\''+t.id+'\')"'+(hasSenderEmail?'':' disabled')+'>\u21A9 Return with this list</button>';
+      html += '</div></div>';
+    }
   }
 
   // Original Attachment Preview (from Supabase Storage — inline iframe/img on demand)
