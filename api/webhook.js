@@ -113,6 +113,19 @@ export default async function handler(req, res) {
         remark: data.remark || '',
         transaction_id: data.transaction_id || '',
         depositor_name: data.depositor_name || '',
+        // KAN-35 email-side fields (retroactive — these were extracted since v10.1 but never persisted)
+        payment_date: data.payment_date || '',
+        payroll_period: data.payroll_period || '',
+        // KAN-36 email-side fields (v11)
+        initiator_name: data.initiator_name || '',
+        purpose: data.purpose || '',
+        cost_center: data.cost_center || '',
+        // KAN-36 document-side mirror fields for side-by-side comparison (v11)
+        doc_company_name: data.doc_company_name || '',
+        doc_payment_date: data.doc_payment_date || '',
+        doc_initiator_name: data.doc_initiator_name || '',
+        doc_purpose: data.doc_purpose || '',
+        doc_cost_center: data.doc_cost_center || '',
         n8n_source: true,
       })
       .select('id, ticket_number')

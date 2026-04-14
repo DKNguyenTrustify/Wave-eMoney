@@ -2938,6 +2938,18 @@ function createTicketFromN8n(data){
     // v6: Attachment from Supabase Storage
     attachment_url:data.attachment_url||'',
     attachment_mime_type:data.attachment_mime_type||'',
+    // KAN-35 / KAN-36 email-side extraction fields (v11)
+    payment_date:data.payment_date||'',
+    payroll_period:data.payroll_period||'',
+    initiator_name:data.initiator_name||'',
+    purpose:data.purpose||'',
+    cost_center:data.cost_center||'',
+    // KAN-36 document-side mirror fields for side-by-side comparison (v11)
+    doc_company_name:data.doc_company_name||'',
+    doc_payment_date:data.doc_payment_date||'',
+    doc_initiator_name:data.doc_initiator_name||'',
+    doc_purpose:data.doc_purpose||'',
+    doc_cost_center:data.doc_cost_center||'',
   };
   state.tickets[tid].status = deriveStatus(state.tickets[tid]);
   state.tickets[tid].risk_level = computeRisk(state.tickets[tid]);
