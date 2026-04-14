@@ -452,6 +452,37 @@ body.emoney-view .mobile-menu .nav-btn:nth-child(n+3){display:none !important;}
   </div>
 </div>
 
+<!-- Wave 3D-B: Return to Client preview modal (confirm before sending email) -->
+<div class="modal-overlay" id="return-preview-modal" onclick="if(event.target===this)closeReturnPreview()">
+  <div class="modal" style="max-width:640px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
+      <h3 style="margin:0">Return to Client — Confirm before send</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeReturnPreview()" style="font-size:20px;padding:4px 8px">&times;</button>
+    </div>
+    <div style="background:var(--bg);padding:12px 14px;border-radius:8px;margin-bottom:14px;font-size:13px">
+      <div style="margin-bottom:4px"><strong>Ticket:</strong> <span id="return-preview-ticket">—</span></div>
+      <div style="margin-bottom:4px"><strong>To:</strong> <span id="return-preview-to">—</span></div>
+      <div><strong>Subject:</strong> <span id="return-preview-subject">—</span></div>
+    </div>
+    <label style="display:block;margin-bottom:6px;font-size:13px;font-weight:600">Reason for return <span style="color:var(--muted);font-weight:400">(visible to client):</span></label>
+    <textarea id="return-reason-input" rows="4" placeholder="Explain what the client needs to correct. E.g., &quot;Amount in email (25,000,000 MMK) does not match bank slip (24,500,000 MMK). Please verify and resubmit.&quot;" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;box-sizing:border-box;resize:vertical"></textarea>
+    <div style="margin-top:12px;padding:12px 14px;background:#fef3c7;border:1px solid #fde68a;border-radius:8px;font-size:12px;color:#78350f">
+      <strong>What the client will receive:</strong>
+      <ul style="margin:6px 0 0 0;padding-left:20px;line-height:1.6">
+        <li>Professional Wave Money return email format</li>
+        <li>Ticket ID reference for traceability</li>
+        <li>Your reason text (highlighted section)</li>
+        <li>Next-steps instructions (review, correct, resubmit)</li>
+        <li>Reply-to: emoney@zeyalabs.ai (CC'd for audit)</li>
+      </ul>
+    </div>
+    <div class="btn-group" style="margin-top:16px;justify-content:flex-end;gap:8px">
+      <button class="btn btn-outline" onclick="closeReturnPreview()">Cancel</button>
+      <button class="btn btn-danger" id="return-confirm-btn" onclick="confirmAndSendReturn()">Send Return Email</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <div class="modal-overlay" id="modal-emoney-success" onclick="if(event.target===this)this.classList.remove('open')">
@@ -3008,42 +3039,65 @@ function generateEmployeeCSV(t){
 // Production webhook URL (Outlook OAuth reused from v10.1 via consolidated n8n workflow)
 const RETURN_EMAIL_WEBHOOK = 'https://tts-test.app.n8n.cloud/webhook/return-to-client';
 
-async function returnToClient(ticketId){
+// Wave 3D-B: holds the ticket ID currently being reviewed in the return preview modal
+let _returnPreviewTicketId = null;
+
+// Wave 3D-B (Option B): opens preview modal instead of immediate send
+function returnToClient(ticketId){
   const t = state.tickets[ticketId];
   if(!t) return;
 
-  // Validate required fields before asking operator to type reason
   if(!t.from_email){
     showToast('Cannot return — no sender email on this ticket', 'warning');
     return;
   }
 
-  // Prompt operator for return reason (Option A: simple prompt, no preview step)
-  const reason = prompt(
-    'Return ' + t.id + ' to client (' + t.from_email + ').\n\n' +
-    'Reason for return (shown in email to client):',
-    ''
-  );
-  if(reason === null){
-    // Operator cancelled
-    return;
-  }
-  if(!reason || reason.trim().length < 5){
+  // Populate preview modal
+  _returnPreviewTicketId = t.id;
+  const subjectLine = 'Re: ' + (t.original_subject || 'Disbursement Request') + ' \u2014 Action Required (' + t.id + ')';
+  document.getElementById('return-preview-ticket').textContent = t.id + ' \u00b7 ' + (t.company || 'Unknown company');
+  document.getElementById('return-preview-to').textContent = t.from_email;
+  document.getElementById('return-preview-subject').textContent = subjectLine;
+  document.getElementById('return-reason-input').value = '';
+  document.getElementById('return-preview-modal').classList.add('open');
+  // Auto-focus the reason textarea
+  setTimeout(function(){ const ta = document.getElementById('return-reason-input'); if(ta) ta.focus(); }, 50);
+}
+
+function closeReturnPreview(){
+  document.getElementById('return-preview-modal').classList.remove('open');
+  _returnPreviewTicketId = null;
+}
+
+// Wave 3D-B: called when operator clicks "Send Return Email" in the preview modal
+async function confirmAndSendReturn(){
+  const ticketId = _returnPreviewTicketId;
+  if(!ticketId){ closeReturnPreview(); return; }
+  const t = state.tickets[ticketId];
+  if(!t){ closeReturnPreview(); return; }
+
+  const reasonEl = document.getElementById('return-reason-input');
+  const reason = (reasonEl.value || '').trim();
+  if(reason.length < 5){
     showToast('Reason must be at least 5 characters', 'warning');
+    reasonEl.focus();
     return;
   }
 
+  // Disable the confirm button to prevent double-click
+  const confirmBtn = document.getElementById('return-confirm-btn');
+  if(confirmBtn){ confirmBtn.disabled = true; confirmBtn.textContent = 'Sending...'; }
   showToast('Sending return email to ' + t.from_email + '...', 'info');
 
   try {
-    // Wave 3D bugfix: n8n webhook auto-wraps request body under $json.body — don't double-wrap here
+    // n8n webhook auto-wraps request body under $json.body — send flat payload (no double-wrap)
     const resp = await fetch(RETURN_EMAIL_WEBHOOK, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ticket_id: t.id,
         from_email: t.from_email,
-        reason: reason.trim(),
+        reason: reason,
         company: t.company || 'Customer',
         original_subject: t.original_subject || 'Disbursement Request'
       })
@@ -3053,26 +3107,29 @@ async function returnToClient(ticketId){
       const errText = await resp.text().catch(() => '(no body)');
       console.error('Return email webhook failed:', resp.status, errText);
       showToast('Failed to send return email (HTTP ' + resp.status + '). Ticket not changed.', 'danger');
+      if(confirmBtn){ confirmBtn.disabled = false; confirmBtn.textContent = 'Send Return Email'; }
       return;
     }
 
     // Webhook success — update ticket state
     t.status = 'ASKED_CLIENT';
-    t.return_reason = reason.trim();
+    t.return_reason = reason;
     t.returned_at = new Date().toISOString();
     state._lastSavedTicketId = t.id;
     saveState();
-    logActivity(t.id + ' returned to client (' + t.from_email + '): ' + reason.trim().substring(0,100) + (reason.trim().length > 100 ? '...' : ''));
+    logActivity(t.id + ' returned to client (' + t.from_email + '): ' + reason.substring(0,100) + (reason.length > 100 ? '...' : ''));
 
     showToast(t.id + ' returned to client. Email sent.', 'success');
 
-    // Close modal + re-render
+    // Close both modals + re-render
+    closeReturnPreview();
     document.getElementById('ticket-detail-modal').classList.remove('open');
     renderDashboard();
 
   } catch(err){
     console.error('Return email fetch error:', err);
     showToast('Network error sending return email. Ticket not changed.', 'danger');
+    if(confirmBtn){ confirmBtn.disabled = false; confirmBtn.textContent = 'Send Return Email'; }
   }
 }
 
