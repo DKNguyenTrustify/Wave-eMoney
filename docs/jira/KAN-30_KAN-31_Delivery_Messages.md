@@ -136,3 +136,124 @@ WHERE ticket_number IN ('TKT-021')
 **Manual INTAKE webhook test path** fails with n8n error "A 'json' property isn't an object [item 0]" when POSTed directly via curl. Pre-existing issue — NOT caused by KAN-30 v10 changes. Outlook Trigger is the production path and works perfectly.
 
 Details saved in `memory/known_issue_manual_webhook_test_payload.md`. Fix planned for v11 post-Apr-20 go-live.
+
+---
+
+# 📨 Apr 14 Addendum — KAN-34 / KAN-35 Delivered + KAN-36 Queued
+
+## Jira Comment for KAN-34 (paste when moving to Done)
+
+```
+Done. All 7 dashboard simplification items + 2 verbal quick-wins shipped.
+
+Commits:
+- a31bd78 — KAN-34 items #1–#7 (hide tabs, hide badges, title spacing, remove columns, simplify status/risk)
+- 84ba23a — verbal quick-wins (Auto badge removed from table, 10-per-page pagination)
+- 7c08b2f — Auto badge also removed from ticket detail modal (Wave 3A follow-up)
+
+Items delivered:
+✅ #1 Hide Finance Approval + E-Money Review tabs (body.emoney-view CSS)
+✅ #2 Hide Intake/Maker + Auto/Private/DEMO badges (CSS)
+✅ #3 Spacing below "eMoney Dashboard" title (.section-title margin-bottom 4→20px)
+✅ #4 Remove Created column from ticket table
+✅ #5 Remove Track A + Track B columns
+✅ #6 Display only 2 statuses: Asked Client / Ready for Finance (via hasTicketIssue helper)
+✅ #7 Display only 2 risks: High / Low (via same helper, mutually exclusive + aligned with card counts)
+
+Bonus from morning verbal conversation:
+✅ Auto badge removed from dashboard table + from ticket detail modal header
+✅ Dashboard pagination 10 tickets per page with Prev/Next + "Showing X–Y of N"
+
+Live on project-ii0tm.vercel.app. Ctrl+Shift+D still available for dev-view toggle.
+```
+
+**Attach screenshots:**
+- Dashboard showing 3 clean cards + 7-column table + pagination controls
+- Ticket detail modal without Auto badge
+
+---
+
+## Jira Comment for KAN-35 (paste when moving to Done)
+
+```
+Done. Payment Date shows in notification email, plus bonus Payroll Period.
+
+Commits:
+- 3e748f8 — Pipeline v10.1 (Payment Date + Payroll Period in notification)
+
+Changes in n8n workflow v10.1:
+- Prepare for AI v3: Groq prompt extended to extract payment_date (client's pay day) and payroll_period (period salary covers) as separate fields, with explicit instruction that these are distinct concepts
+- AI Parse & Validate v3: new fields passed through to ticket output + verification object
+- Send Outlook Notification: verification checklist now has 8 rows (was 7) — split the original "Date time" row into "Payment date" and "Payroll period"
+
+Verified end-to-end via real email test (TKT-024): all 8 verification rows render correctly with ✅/⚠️ indicators based on field presence.
+
+Bonus from today's verbal conversation:
+✅ Email template labels the two dates distinctly so Ops doesn't confuse them (per your request)
+
+v10.1 is active in n8n Cloud. v10 kept as fallback (instant rollback available).
+```
+
+**Attach screenshots:**
+- TKT-024 notification email showing both "Payment date" and "Payroll period" rows
+
+---
+
+## Teams Message to Vinh (copy-paste)
+
+```
+Hi Vinh,
+
+Big delivery today — KAN-34 and KAN-35 are done and live. Also picked up a bunch of verbal enhancements from our morning chat.
+
+✅ KAN-34 (Dashboard UI simplify)
+- 3 clean stat cards, 7-column table, simplified status + risk to 2 values each, hidden non-Dashboard nav except Activity Log (per your verbal ask this morning)
+- Plus: Auto badge gone, pagination (10 per page), Activity Log on its own tab with search + pagination, CSV re-download from approved tickets
+
+✅ KAN-35 (Payment Date in notification email)
+- Pipeline v10.1 live. Notification verification checklist now shows Payment Date (client's pay day) AND Payroll Period (salary coverage period) as separate rows.
+
+✅ Wave 3 verbal enhancements
+- "Return to Client" button with real email sending via n8n return-to-client webhook (Option A + Option B preview modal)
+- "Approve & Download Employee CSV" button (client-side CSV generation)
+- Loop guard on main pipeline to ignore our own outbound emails (prevents CC-back loop)
+
+📋 KAN-36 (Ticket detail popup refactor) — queued for tomorrow
+- Analyzed your spec today. Coming as pipeline v11 + dashboard modal refactor.
+- Splitting from the Claude migration intentionally — we'll validate v11 is stable before moving to v12 (Claude-only API).
+- Full plan saved in repo: docs/jira/KAN-36_Analysis_And_Plan.md
+
+Screenshots + commit SHAs are in each Jira ticket.
+
+— DK
+```
+
+---
+
+## Post-Delivery Cleanup Checklist (next time you're in Supabase)
+
+```sql
+-- Review test tickets created during Wave 3 verification
+SELECT ticket_number, company, amount_requested, created_at
+FROM tickets_v2
+WHERE created_at > '2026-04-13 00:00:00'
+  AND (
+    company LIKE '%Test Company%'
+    OR company LIKE '%Pacific Star March%'
+    OR company LIKE '%Golden Rice Trading%'
+    OR company LIKE '%Manual Webhook Test%'
+  )
+ORDER BY created_at DESC;
+
+-- Delete if confirmed test junk
+-- DELETE FROM tickets_v2 WHERE ticket_number IN ('TKT-021', 'TKT-022', ...);
+```
+
+---
+
+## 🧭 Navigation
+
+- **Consolidated requirements** (KAN-34 + KAN-35 + verbal): `docs/jira/KAN-34_KAN-35_Consolidated_Requirements.md`
+- **This delivery doc:** `docs/jira/KAN-30_KAN-31_Delivery_Messages.md`
+- **KAN-36 next-session plan:** `docs/jira/KAN-36_Analysis_And_Plan.md`
+- **Session state memory:** `memory/checkpoint_07_wave3_complete_ready_for_kan36.md`

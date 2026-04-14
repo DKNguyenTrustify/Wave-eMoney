@@ -123,18 +123,44 @@ Actions:
 
 | Item | Wave | Status | Commit | Date |
 |---|---|---|---|---|
-| #1 Hide Finance + E-Money tabs | 2 | ⏳ Pending | — | — |
-| #2 Hide badges (Intake/Auto/Private/DEMO) | 2 | ⏳ Pending | — | — |
-| #3 Spacing below Dashboard title | 2 | ⏳ Pending | — | — |
-| #4 Remove Created column | 2 | ⏳ Pending | — | — |
-| #5 Remove Track A + Track B columns | 2 | ⏳ Pending | — | — |
-| #6 Simplify status to 2 values | 2 | ⏳ Pending | — | — |
-| #7 Simplify risk to 2 values | 2 | ⏳ Pending | — | — |
-| #8 Payment Date (KAN-35) | 1 | ⏳ Pending | — | — |
-| #9 Payroll Period (verbal) | 1 | ⏳ Pending | — | — |
-| #10 Return to Client button | 3 | ⏳ Pending | — | — |
-| #11 Approve & Download CSV button | 3 | ⏳ Pending | — | — |
-| TKT-021 cleanup + Jira close-out | 4 | ⏳ Pending | — | — |
+| #1 Hide Finance + E-Money tabs | 2 (then Wave 3B superseded) | ✅ Done | `3064498` → `f96dfef` → Wave 3B moved to nav | 2026-04-13 + 14 |
+| #2 Hide badges (Intake/Auto/Private/DEMO) | 2 | ✅ Done | `a31bd78` | 2026-04-14 |
+| #3 Spacing below Dashboard title | 2 | ✅ Done | `a31bd78` | 2026-04-14 |
+| #4 Remove Created column | 2 | ✅ Done | `a31bd78` | 2026-04-14 |
+| #5 Remove Track A + Track B columns | 2 | ✅ Done | `a31bd78` | 2026-04-14 |
+| #6 Simplify status to 2 values | 2 | ✅ Done | `a31bd78` | 2026-04-14 |
+| #7 Simplify risk to 2 values | 2 | ✅ Done | `a31bd78` | 2026-04-14 |
+| #8 Payment Date (KAN-35) | 1 | ✅ Done | `3e748f8` | 2026-04-14 |
+| #9 Payroll Period (verbal enhancement) | 1 | ✅ Done | `3e748f8` | 2026-04-14 |
+| #10 Return to Client button (Option A + B) | 3 | ✅ Done | `cff29b5` → `cb7d59d` (payload fix) → `b82454f` (preview modal) → `32e0be2` (z-index) → `0504e9a` (loop guard) | 2026-04-14 |
+| #11 Approve & Download CSV button | 3 | ✅ Done | `09b4cac` | 2026-04-14 |
+| Verbal: Remove Auto badge from table | 2b | ✅ Done | `84ba23a` | 2026-04-14 |
+| Verbal: Dashboard pagination (10/page) | 2b | ✅ Done | `84ba23a` | 2026-04-14 |
+| Verbal: Auto badge also removed from modal | 3A | ✅ Done | `7c08b2f` | 2026-04-14 |
+| Verbal: Activity Log as new top-nav tab | 3B | ✅ Done | `72d1e14` | 2026-04-14 |
+| Verbal: Activity Log pagination + search | 3F | ✅ Done | `b869c61` | 2026-04-14 |
+| Verbal: CSV re-download from approved banner | 3G | ✅ Done | `686f880` | 2026-04-14 |
+| TKT-021 cleanup | Deferred | 🟡 Post-Apr-20 | — | — |
+| Jira close-out (KAN-34, KAN-35) | 4 | ⏳ Ready (see KAN-30_KAN-31_Delivery_Messages.md for prepared comments) | — | — |
+
+**Net: 17/17 requirements shipped. TKT-021 cleanup deferred to post-Apr-20 (safe — test ticket, not blocking).**
+
+**Session total commits today (Apr 14): 13 commits from baseline `4a28bd1`**
+- Wave 1: `3e748f8`
+- Wave 2: `a31bd78`
+- Wave 2b: `84ba23a`
+- Wave 3A: `7c08b2f`
+- Wave 3B: `72d1e14`
+- Wave 3C: `ed1a840` (n8n workflow JSON — DK imported into consolidated workflow)
+- Wave 3E: `09b4cac`
+- Wave 3G: `686f880`
+- Wave 3F: `b869c61`
+- Wave 3D: `cff29b5`
+- Wave 3D fix: `cb7d59d`
+- Wave 3D-B: `b82454f`
+- Wave 3D-B z-index fix: `32e0be2`
+- Loop guard fix: `0504e9a`
+- Wave 3 plan/audit doc: `30633a5`
 
 ---
 
