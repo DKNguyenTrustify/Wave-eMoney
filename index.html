@@ -3004,6 +3004,79 @@ function generateEmployeeCSV(t){
   return '\ufeff' + csv;  // UTF-8 BOM prefix
 }
 
+// Wave 3D: Return to Client — sends email back to original sender via n8n return-email webhook
+// Production webhook URL (Outlook OAuth reused from v10.1 via consolidated n8n workflow)
+const RETURN_EMAIL_WEBHOOK = 'https://tts-test.app.n8n.cloud/webhook/return-to-client';
+
+async function returnToClient(ticketId){
+  const t = state.tickets[ticketId];
+  if(!t) return;
+
+  // Validate required fields before asking operator to type reason
+  if(!t.from_email){
+    showToast('Cannot return — no sender email on this ticket', 'warning');
+    return;
+  }
+
+  // Prompt operator for return reason (Option A: simple prompt, no preview step)
+  const reason = prompt(
+    'Return ' + t.id + ' to client (' + t.from_email + ').\n\n' +
+    'Reason for return (shown in email to client):',
+    ''
+  );
+  if(reason === null){
+    // Operator cancelled
+    return;
+  }
+  if(!reason || reason.trim().length < 5){
+    showToast('Reason must be at least 5 characters', 'warning');
+    return;
+  }
+
+  showToast('Sending return email to ' + t.from_email + '...', 'info');
+
+  try {
+    const resp = await fetch(RETURN_EMAIL_WEBHOOK, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        body: {
+          ticket_id: t.id,
+          from_email: t.from_email,
+          reason: reason.trim(),
+          company: t.company || 'Customer',
+          original_subject: t.original_subject || 'Disbursement Request'
+        }
+      })
+    });
+
+    if(!resp.ok){
+      const errText = await resp.text().catch(() => '(no body)');
+      console.error('Return email webhook failed:', resp.status, errText);
+      showToast('Failed to send return email (HTTP ' + resp.status + '). Ticket not changed.', 'danger');
+      return;
+    }
+
+    // Webhook success — update ticket state
+    t.status = 'ASKED_CLIENT';
+    t.return_reason = reason.trim();
+    t.returned_at = new Date().toISOString();
+    state._lastSavedTicketId = t.id;
+    saveState();
+    logActivity(t.id + ' returned to client (' + t.from_email + '): ' + reason.trim().substring(0,100) + (reason.trim().length > 100 ? '...' : ''));
+
+    showToast(t.id + ' returned to client. Email sent.', 'success');
+
+    // Close modal + re-render
+    document.getElementById('ticket-detail-modal').classList.remove('open');
+    renderDashboard();
+
+  } catch(err){
+    console.error('Return email fetch error:', err);
+    showToast('Network error sending return email. Ticket not changed.', 'danger');
+  }
+}
+
 // Wave 3G: re-download CSV for already-approved tickets (no status change, just download)
 function downloadCSVOnly(ticketId){
   const t = state.tickets[ticketId];
@@ -3081,12 +3154,16 @@ function openTicketDetail(ticketId){
     <button class="btn btn-ghost btn-sm" onclick="document.getElementById('ticket-detail-modal').classList.remove('open')" style="font-size:20px;padding:4px 8px">&times;</button>
   </div>`;
 
-  // Wave 3E: Quick Actions row — Approve & Download CSV (Return to Client added in 3D)
+  // Wave 3D+3E: Quick Actions row — Return to Client (red) + Approve & Download CSV (green)
   const alreadyApproved = t.finance_status === 'APPROVED';
   const alreadyReturned = t.status === 'ASKED_CLIENT';
   const hasEmployees = (t.extracted_employees || []).length > 0;
+  const hasSenderEmail = !!t.from_email;
   if(!alreadyApproved && !alreadyReturned){
     html += `<div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+      <button class="btn btn-danger" onclick="returnToClient('${t.id}')" title="${hasSenderEmail ? 'Send email back to client (' + t.from_email + ') asking for correction' : 'No sender email on this ticket — cannot return'}" ${hasSenderEmail ? '' : 'disabled'}>
+        \u21A9 Return to Client
+      </button>
       <button class="btn btn-success" onclick="approveAndDownloadCSV('${t.id}')" title="${hasEmployees ? 'Approve ticket + download employee CSV for Finance' : 'No employee list extracted yet — cannot download CSV'}" ${hasEmployees ? '' : 'disabled'}>
         \u2713 Approve &amp; Download CSV${hasEmployees ? ' (' + (t.extracted_employees || []).length + ' employees)' : ''}
       </button>
