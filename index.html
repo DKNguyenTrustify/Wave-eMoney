@@ -2908,7 +2908,6 @@ function openTicketDetail(ticketId){
       <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
         ${typeBadgeHtml(t.type)} ${riskBadgeHtml(t.risk_level)}
         ${t.scenario&&t.scenario!=='NORMAL'?'<span class="badge badge-warn">'+t.scenario.replace(/_/g,' ')+'</span>':''}
-        ${t.n8n_source?'<span style="background:#FF6D5A;color:#fff;font-size:11px;padding:3px 8px;border-radius:4px;font-weight:700">Auto</span>':''}
         ${t.vision_parsed?(()=>{const c=((t.vision_confidence||0)*100).toFixed(0);const cls=c>=90?'badge-sent':c>=70?'badge-warn':'badge-rejected';return '<span class="'+cls+'">Vision'+(c>0?' '+c+'%':'')+'</span>';})():''}
       </div>
     </div>
