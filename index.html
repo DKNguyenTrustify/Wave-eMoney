@@ -3156,6 +3156,90 @@ function downloadCSVOnly(ticketId){
   showToast(t.id + ' CSV re-downloaded', 'success');
 }
 
+// ─── KAN-36 HELPERS ──────────────────────────────────────────────────────────
+
+// KAN-36 completeness gate — returns { complete: bool, missing: string[], hasMismatch: bool }
+// Used by both the "Generate CSV for Finance" button gate (B4) and the warning panel (B5).
+// Soft gate for cost_center per DK's option C: listed in warning but doesn't strictly block CSV.
+function kan36Completeness(t){
+  const missing = [];
+  if(!t.company || t.company === 'Unknown Company') missing.push('Company name');
+  if(!t.initiator_name) missing.push('Initiator Name');
+  if(!t.payment_type) missing.push('Payment type');
+  if(!t.payment_date) missing.push('Payment date');
+  if(!t.purpose) missing.push('Purpose');
+  if(!t.cost_center) missing.push('Cost Center');
+  // Valid phone/account: MA needs every employee; OTC needs at least one bank account on document
+  const isOTC = t.payment_type === 'salarytoOTC';
+  const emps = t.extracted_employees || [];
+  if(!isOTC){
+    if(emps.length === 0){ missing.push('Employee list (phone/account)'); }
+    else if(emps.some(function(e){ return !(e.account_or_phone || e.MSISDN || e.phone); })) missing.push('Valid phone/account for every employee');
+  }
+  const hasMismatch = !!t.has_mismatch || !!t.amount_mismatch || t.scenario === 'AMOUNT_MISMATCH';
+  // Block CSV generation on hard-required fields (everything except Cost Center which is soft gate)
+  const hardMissing = missing.filter(function(m){ return m !== 'Cost Center'; });
+  const complete = hardMissing.length === 0 && !hasMismatch;
+  return { complete: complete, missing: missing, hardMissing: hardMissing, hasMismatch: hasMismatch };
+}
+
+// KAN-36 side-by-side AI Analysis — 6-row Email vs Document comparison table.
+// Green = match (case-insensitive, trim). Yellow = mismatch or one side missing. Gray = both empty.
+function kan36RenderSideBySide(t){
+  const rows = [
+    { label: 'Company Name', email: t.company || '', doc: t.doc_company_name || t.depositor_name || '' },
+    { label: 'Initiator Name', email: t.initiator_name || '', doc: t.doc_initiator_name || '' },
+    { label: 'Total Amount', email: t.amount_requested ? (fmt(t.amount_requested)+' MMK') : '', doc: t.amount_on_document ? (fmt(t.amount_on_document)+' MMK') : '' },
+    { label: 'Pay Date', email: t.payment_date || '', doc: t.doc_payment_date || '' },
+    { label: 'Purpose', email: t.purpose || '', doc: t.doc_purpose || '' },
+    { label: 'Cost Center', email: t.cost_center || '', doc: t.doc_cost_center || '' }
+  ];
+  function normalize(v){ return (v || '').toString().trim().toLowerCase(); }
+  function statusOf(r){
+    const a = normalize(r.email), b = normalize(r.doc);
+    if(!a && !b) return 'empty';
+    if(a && b && a === b) return 'match';
+    if(a && b && a !== b) return 'mismatch';
+    return 'partial'; // one side missing
+  }
+  function bgColor(s){
+    if(s === 'match') return '#dcfce7';      // green
+    if(s === 'mismatch') return '#fef3c7';   // yellow
+    if(s === 'partial') return '#fef3c7';    // yellow
+    return 'var(--bg)';                       // gray (both empty)
+  }
+  function borderColor(s){
+    if(s === 'match') return '#86efac';
+    if(s === 'mismatch' || s === 'partial') return '#fde68a';
+    return 'var(--border)';
+  }
+  function icon(s){
+    if(s === 'match') return '\u2713';
+    if(s === 'mismatch') return '\u26A0\uFE0F';
+    if(s === 'partial') return '\u2014';
+    return '';
+  }
+  let html = '<table class="csv-table" style="width:100%;border-collapse:separate;border-spacing:0 4px"><thead><tr>';
+  html += '<th style="width:140px">Field</th><th>From Email (AI Extract)</th><th>From Document (Vision)</th><th style="width:40px;text-align:center">Match</th>';
+  html += '</tr></thead><tbody>';
+  rows.forEach(function(r){
+    const s = statusOf(r);
+    const bg = bgColor(s);
+    const bc = borderColor(s);
+    const emailDisp = r.email || '<span style="color:var(--muted);font-style:italic">Not extracted</span>';
+    const docDisp = r.doc || '<span style="color:var(--muted);font-style:italic">Not extracted</span>';
+    html += '<tr style="background:'+bg+'">';
+    html += '<td style="border-top:1px solid '+bc+';border-bottom:1px solid '+bc+';border-left:1px solid '+bc+';font-weight:600">'+r.label+'</td>';
+    html += '<td style="border-top:1px solid '+bc+';border-bottom:1px solid '+bc+'">'+emailDisp+'</td>';
+    html += '<td style="border-top:1px solid '+bc+';border-bottom:1px solid '+bc+'">'+docDisp+'</td>';
+    html += '<td style="border-top:1px solid '+bc+';border-bottom:1px solid '+bc+';border-right:1px solid '+bc+';text-align:center;font-weight:700">'+icon(s)+'</td>';
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  html += '<div style="font-size:11px;color:var(--muted);margin-top:6px">Legend: <span style="background:#dcfce7;padding:2px 6px;border-radius:4px">Match</span> &nbsp; <span style="background:#fef3c7;padding:2px 6px;border-radius:4px">Mismatch / missing on one side</span> &nbsp; <span style="color:var(--muted)">Both empty = not extracted by either source</span></div>';
+  return html;
+}
+
 // Wave 3E: trigger browser download + update ticket to APPROVED status
 function approveAndDownloadCSV(ticketId){
   const t = state.tickets[ticketId];
@@ -3348,10 +3432,14 @@ function openTicketDetail(ticketId){
     }
   }
 
-  // AI Analysis — COLLAPSED by default (technical detail, one click away)
+  // KAN-36: AI Analysis — side-by-side comparison (email vs document) for 6 key fields
   if(t.n8n_source||t.ai_parsed){
-    html += '<div class="section-collapsible"><div class="section-toggle" onclick="this.parentElement.classList.toggle(\'open\')">AI Analysis</div><div class="section-body">';
+    html += '<div class="section-collapsible open"><div class="section-toggle" onclick="this.parentElement.classList.toggle(\'open\')">AI Analysis &mdash; Email vs Document</div><div class="section-body">';
+    html += kan36RenderSideBySide(t);
+    // Keep the old pipeline breakdown available as a nested expandable for technical debugging
+    html += '<div class="section-collapsible" style="margin-top:12px"><div class="section-toggle" onclick="this.parentElement.classList.toggle(\'open\')" style="font-size:12px;color:var(--muted)">Pipeline Details (technical)</div><div class="section-body">';
     html += renderAIPipelineSection(t);
+    html += '</div></div>';
     html += '</div></div>';
   }
 
