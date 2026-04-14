@@ -2920,6 +2920,28 @@ function generateEmployeeCSV(t){
   return '\ufeff' + csv;  // UTF-8 BOM prefix
 }
 
+// Wave 3G: re-download CSV for already-approved tickets (no status change, just download)
+function downloadCSVOnly(ticketId){
+  const t = state.tickets[ticketId];
+  if(!t) return;
+  const employees = t.extracted_employees || [];
+  if(employees.length === 0){
+    showToast('No employee list available', 'warning');
+    return;
+  }
+  const csv = generateEmployeeCSV(t);
+  const blob = new Blob([csv], {type: 'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = t.id + '_employees.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast(t.id + ' CSV re-downloaded', 'success');
+}
+
 // Wave 3E: trigger browser download + update ticket to APPROVED status
 function approveAndDownloadCSV(ticketId){
   const t = state.tickets[ticketId];
@@ -2986,7 +3008,11 @@ function openTicketDetail(ticketId){
       </button>
     </div>`;
   } else if(alreadyApproved){
-    html += `<div style="padding:10px 14px;margin-bottom:16px;background:#dcfce7;color:#166534;border-radius:8px;font-size:13px;font-weight:600">\u2713 Approved by operator${t.approved_at ? ' on ' + new Date(t.approved_at).toLocaleString() : ''}. Employee CSV already downloaded.</div>`;
+    // Wave 3G: re-download button embedded in approved banner (Finance may need CSV again)
+    html += `<div style="padding:10px 14px;margin-bottom:16px;background:#dcfce7;color:#166534;border-radius:8px;font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+      <span>\u2713 Approved by operator${t.approved_at ? ' on ' + new Date(t.approved_at).toLocaleString() : ''} \u00b7 Employee CSV downloaded</span>
+      <button class="btn btn-outline btn-sm" onclick="downloadCSVOnly('${t.id}')" style="font-size:12px;padding:4px 10px">\uD83D\uDCE5 Download CSV again</button>
+    </div>`;
   } else if(alreadyReturned){
     html += `<div style="padding:10px 14px;margin-bottom:16px;background:#fef3c7;color:#92400e;border-radius:8px;font-size:13px;font-weight:600">\u21A9 Returned to client${t.returned_at ? ' on ' + new Date(t.returned_at).toLocaleString() : ''}. Awaiting client correction.${t.return_reason ? '<div style=\"margin-top:6px;font-weight:400\">Reason: ' + t.return_reason + '</div>' : ''}</div>`;
   }
