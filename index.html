@@ -3365,34 +3365,10 @@ function openTicketDetail(ticketId){
     html += '</div></div></div></div>';
   }
 
-  // Approval Status — COLLAPSED
-  html += '<div class="section-collapsible"><div class="section-toggle" onclick="this.parentElement.classList.toggle(\'open\')">Approval Status</div><div class="section-body">';
-  html += '<div class="detail-section" style="border:none;padding:0">';
-  const approvals = t.email_approvals||[];
-  const required = t.required_approvals||['Sales HOD','Finance Manager'];
-  html += '<table class="matrix-table"><thead><tr><th>Required</th><th>Found</th><th>Status</th></tr></thead><tbody>';
-  required.forEach(function(req){
-    const found = approvals.find(a=>a.role&&a.role.toLowerCase().includes(req.toLowerCase()));
-    html += `<tr><td>${req}</td><td class="sensitive">${found?found.name:'&mdash;'}</td><td>${found?'&#10003; Present':'&#10007; Missing'}</td></tr>`;
-  });
-  html += '</tbody></table></div></div></div>';
-
-  // Processing Status — COLLAPSED
-  html += '<div class="section-collapsible"><div class="section-toggle" onclick="this.parentElement.classList.toggle(\'open\')">Processing Status</div><div class="section-body">';
-  html += '<div class="detail-section" style="border:none;padding:0">';
-  const trackA = t.prechecks_done?'<span style="color:#16a34a;font-weight:600">&#10003; Done</span>':'<span style="color:#856404;font-weight:600">Pending</span>';
-  let trackB = '<span style="color:#856404;font-weight:600">Pending</span>';
-  if(t.finance_status==='APPROVED') trackB = '<span style="color:#16a34a;font-weight:600">&#10003; Approved</span>';
-  else if(t.finance_status==='REJECTED') trackB = '<span style="color:#dc2626;font-weight:600">&#10007; Rejected</span>';
-  html += `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;font-size:13px">
-    <div><strong>Track A (Pre-checks):</strong><br>${trackA}</div>
-    <div><strong>Track B (Finance):</strong><br>${trackB}</div>
-    <div><strong>Status:</strong><br>${statusBadgeHtml(t.status)}</div>
-  </div>`;
-  html += `<div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px">
-    <div style="background:var(--bg);padding:10px;border-radius:8px"><span style="color:var(--muted);font-size:11px;text-transform:uppercase">Amount Requested</span><br><strong style="font-size:16px">${fmt(t.amount_requested)} MMK</strong></div>
-    <div style="background:var(--bg);padding:10px;border-radius:8px"><span style="color:var(--muted);font-size:11px;text-transform:uppercase">Bank Slip Amount</span><br><strong style="font-size:16px">${fmt(t.amount_on_bank_slip||0)} MMK</strong></div>
-  </div></div></div></div>`;
+  // KAN-36: Approval Status + Processing Status sections REMOVED per Vinh spec.
+  // Vinh: "we don't check this information to proceed, we just make sure our pipeline
+  // captures enough data to generate CSV for Finance." Focus shifted to extraction
+  // completeness + side-by-side AI Analysis + Generate CSV gate.
 
   container.innerHTML = html;
   document.getElementById('ticket-detail-modal').classList.add('open');
