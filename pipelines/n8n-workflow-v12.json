@@ -190,6 +190,9 @@
       "name": "Send Outlook Notification",
       "type": "n8n-nodes-base.microsoftOutlook",
       "typeVersion": 2,
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000,
       "position": [
         1620,
         520
