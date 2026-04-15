@@ -656,25 +656,26 @@ function reconcileAmounts(ticket, employees){
   const checks = [];
   const req = ticket.amount_requested;
   const slip = ticket.amount_on_bank_slip;
+  const cur = ticket.currency || 'MMK';
 
   if(slip != null){
-    if(req === slip) checks.push({check:'Email vs Bank Slip',status:'pass',detail:`Both show ${fmt(req)} MMK \u2705`});
-    else checks.push({check:'Email vs Bank Slip',status:'fail',detail:`Email: ${fmt(req)} vs Slip: ${fmt(slip)} \u2014 Gap: ${fmt(Math.abs(req-slip))} MMK`});
+    if(req === slip) checks.push({check:'Email vs Bank Slip',status:'pass',detail:`Both show ${fmtCur(req,cur)} \u2705`});
+    else checks.push({check:'Email vs Bank Slip',status:'fail',detail:`Email: ${fmt(req)} vs Slip: ${fmt(slip)} \u2014 Gap: ${fmtCur(Math.abs(req-slip),cur)}`});
   } else {
     checks.push({check:'Email vs Bank Slip',status:'warn',detail:'No bank slip uploaded yet'});
   }
 
   if(employees && employees.length > 0){
     const empTotal = employees.reduce((s,e)=>s+e.Amount,0);
-    if(empTotal === req) checks.push({check:'Employee Total vs Requested',status:'pass',detail:`Both show ${fmt(req)} MMK \u2705`});
-    else checks.push({check:'Employee Total vs Requested',status:'fail',detail:`Employees: ${fmt(empTotal)} vs Requested: ${fmt(req)} \u2014 Gap: ${fmt(Math.abs(empTotal-req))} MMK`});
+    if(empTotal === req) checks.push({check:'Employee Total vs Requested',status:'pass',detail:`Both show ${fmtCur(req,cur)} \u2705`});
+    else checks.push({check:'Employee Total vs Requested',status:'fail',detail:`Employees: ${fmt(empTotal)} vs Requested: ${fmt(req)} \u2014 Gap: ${fmtCur(Math.abs(empTotal-req),cur)}`});
   } else {
     checks.push({check:'Employee Total vs Requested',status:'warn',detail:'No employee list uploaded yet'});
   }
 
   if(slip != null && employees && employees.length > 0){
     const empTotal = employees.reduce((s,e)=>s+e.Amount,0);
-    if(req === slip && slip === empTotal) checks.push({check:'Three-Way Match',status:'pass',detail:`All sources agree: ${fmt(req)} MMK \u2705`});
+    if(req === slip && slip === empTotal) checks.push({check:'Three-Way Match',status:'pass',detail:`All sources agree: ${fmtCur(req,cur)} \u2705`});
     else checks.push({check:'Three-Way Match',status:'fail',detail:`Email: ${fmt(req)} | Slip: ${fmt(slip)} | Employees: ${fmt(empTotal)}`});
   }
 
@@ -927,6 +928,11 @@ async function initState(){
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 
 function fmt(n){ return Number(n).toLocaleString('en-US'); }
+// Currency-aware amount formatter. Pass the ticket's extracted currency
+// (USD/EUR/MMK/etc); falls back to MMK for legacy tickets and for
+// Wave-domestic contexts (Utiba CSV, live monitoring, fees) which remain
+// hardcoded as MMK by product definition.
+function fmtCur(n, currency){ return fmt(n) + ' ' + (currency || 'MMK'); }
 function nowTs(){ return new Date().toISOString(); }
 function fmtTime(ts){
   if(!ts) return '';
@@ -1434,7 +1440,7 @@ function renderDashboard(){
       // KAN-34 #4,#5,#6,#7: removed Created + Track A + Track B columns; simplified status + risk badges
       html += `<tr onclick="openTicketDetail('${t.id}')" style="cursor:pointer">
         <td><a href="#" onclick="openTicketDetail('${t.id}');event.stopPropagation();return false" style="color:var(--blue);text-decoration:none"><strong>${t.id}</strong></a></td><td>${t.company}</td><td>${typeBadgeHtml(t.type)}</td>
-        <td style="font-weight:700">${fmt(t.amount_requested)} MMK</td>
+        <td style="font-weight:700">${fmtCur(t.amount_requested, t.currency)}</td>
         <td>${visionCol}</td>
         <td>${simplifiedStatusBadge(t)}</td><td>${simplifiedRiskBadge(t)}</td>
       </tr>`;
@@ -1519,8 +1525,8 @@ function renderEmails(){
             ${t.has_attachments?'<span class="badge badge-blue">Attach: '+t.attachment_count+'</span>':''}</div>
         </div>
         <div class="grid-2" style="margin-bottom:8px">
-          <div><span style="color:var(--muted);font-size:11px;text-transform:uppercase">Amount Requested</span><br><strong>${fmt(t.amount_requested)} MMK</strong></div>
-          <div><span style="color:var(--muted);font-size:11px;text-transform:uppercase">${t.vision_parsed?'Vision Document Amount':'Bank Slip Amount'}</span><br><strong>${fmt(t.amount_on_document||t.amount_on_bank_slip||0)} MMK</strong>${t.has_mismatch?' <span style="color:#92400e;font-size:11px">MISMATCH</span>':''}</div>
+          <div><span style="color:var(--muted);font-size:11px;text-transform:uppercase">Amount Requested</span><br><strong>${fmtCur(t.amount_requested, t.currency)}</strong></div>
+          <div><span style="color:var(--muted);font-size:11px;text-transform:uppercase">${t.vision_parsed?'Vision Document Amount':'Bank Slip Amount'}</span><br><strong>${fmtCur(t.amount_on_document||t.amount_on_bank_slip||0, t.currency)}</strong>${t.has_mismatch?' <span style="color:#92400e;font-size:11px">MISMATCH</span>':''}</div>
         </div>
         ${(function(){
           var mx = checkAuthorityMatrix(t);
@@ -1613,8 +1619,8 @@ function renderEmails(){
     </div>`;
 
     html += `<div class="grid-2" style="margin-bottom:12px">
-      <div><span style="color:var(--muted);font-size:12px">AMOUNT REQUESTED</span><br><strong>${fmt(email.amount_requested)} MMK</strong></div>
-      <div><span style="color:var(--muted);font-size:12px">BANK SLIP AMOUNT</span><br><strong>${fmt(email.amount_on_bank_slip)} MMK</strong></div>
+      <div><span style="color:var(--muted);font-size:12px">AMOUNT REQUESTED</span><br><strong>${fmtCur(email.amount_requested, email.currency)}</strong></div>
+      <div><span style="color:var(--muted);font-size:12px">BANK SLIP AMOUNT</span><br><strong>${fmtCur(email.amount_on_bank_slip, email.currency)}</strong></div>
     </div>`;
 
     html += `<div style="font-size:13px;color:var(--muted);margin-bottom:16px">${email.body_preview}</div>`;
@@ -2026,7 +2032,7 @@ function renderFinance(){
     const tid = ticket.id;
     html += `<div class="card"><div class="card-header"><div class="card-title"><a href="#" onclick="openTicketDetail('${tid}');event.stopPropagation();return false" style="color:var(--blue);text-decoration:none">${tid}</a> \u00B7 ${ticket.company} \u00B7 ${typeBadgeHtml(ticket.type)}</div>${riskBadgeHtml(ticket.risk_level)}</div><div class="card-body">`;
 
-    html += `<div style="font-size:15px;font-weight:700;margin-bottom:16px">Requested: ${fmt(ticket.amount_requested)} MMK</div>`;
+    html += `<div style="font-size:15px;font-weight:700;margin-bottom:16px">Requested: ${fmtCur(ticket.amount_requested, ticket.currency)}</div>`;
 
     // Email metadata (n8n-sourced tickets)
     if(ticket.n8n_source && (ticket.from_email || ticket.to_email || ticket.email_date)){
@@ -2071,7 +2077,7 @@ function renderFinance(){
 
     // Conditional warnings
     if(ticket.has_mismatch){
-      html += `<div class="alert alert-warn">\u26A0\uFE0F <strong>Amount Mismatch:</strong> Email ${fmt(ticket.amount_requested)} MMK vs Bank Slip ${fmt(ticket.amount_on_bank_slip||0)} MMK</div>`;
+      html += `<div class="alert alert-warn">\u26A0\uFE0F <strong>Amount Mismatch:</strong> Email ${fmtCur(ticket.amount_requested, ticket.currency)} vs Bank Slip ${fmtCur(ticket.amount_on_bank_slip||0, ticket.currency)}</div>`;
     }
     if(ticket.scenario === 'MISSING_APPROVAL'){
       html += '<div class="alert alert-danger">\uD83D\uDD34 <strong>Missing Finance Approval</strong> in original email. Finance Manager sign-off was not found.</div>';
@@ -2164,7 +2170,7 @@ function renderEmoney(){
       const tid = ticket.id;
       html += `<div class="card" style="margin-bottom:12px"><div class="card-body">
         <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-          <div style="font-size:15px;font-weight:700">${tid} \u00B7 ${ticket.company} \u00B7 ${typeBadgeHtml(ticket.type)} \u00B7 ${fmt(ticket.amount_requested)} MMK</div>
+          <div style="font-size:15px;font-weight:700">${tid} \u00B7 ${ticket.company} \u00B7 ${typeBadgeHtml(ticket.type)} \u00B7 ${fmtCur(ticket.amount_requested, ticket.currency)}</div>
           ${riskBadgeHtml(ticket.risk_level)}
         </div>
         <div class="grid-2" style="margin-bottom:12px">
@@ -2192,7 +2198,7 @@ function renderEmoney(){
     html += '<div style="font-size:16px;font-weight:700;margin:24px 0 16px">In Progress</div>';
     inProgress.forEach(ticket => {
       html += `<div class="card" style="margin-bottom:12px"><div class="card-body" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-        <div><span style="font-weight:700">${ticket.id}</span> \u00B7 ${ticket.company} \u00B7 ${typeBadgeHtml(ticket.type)} \u00B7 ${fmt(ticket.amount_requested)} MMK</div>
+        <div><span style="font-weight:700">${ticket.id}</span> \u00B7 ${ticket.company} \u00B7 ${typeBadgeHtml(ticket.type)} \u00B7 ${fmtCur(ticket.amount_requested, ticket.currency)}</div>
         <div style="display:flex;align-items:center;gap:8px">${statusBadgeHtml(ticket.status)}
           <button class="btn btn-outline btn-sm" onclick="openEmoneyTicket('${ticket.id}')">Continue →</button>
         </div>
@@ -2985,13 +2991,13 @@ function renderAIPipelineSection(t){
     html += '<div class="detail-grid">';
     html += `<div class="ai-card text-ai"><div class="ai-card-title">Email Analysis</div>
       <div class="ai-field"><div class="ai-field-label">Company</div><div class="ai-field-value">${t.company}</div></div>
-      <div class="ai-field" style="${t.has_mismatch?'background:#fef3c7;padding:6px 8px;border-radius:6px;margin:-2px -8px':t.amount_on_document?'background:#dcfce7;padding:6px 8px;border-radius:6px;margin:-2px -8px':''}"><div class="ai-field-label">Amount (from email)</div><div class="ai-field-value">${fmt(t.amount_requested)} MMK${t.has_mismatch?' &#9888;':t.amount_on_document?' &#10003;':''}</div></div>
+      <div class="ai-field" style="${t.has_mismatch?'background:#fef3c7;padding:6px 8px;border-radius:6px;margin:-2px -8px':t.amount_on_document?'background:#dcfce7;padding:6px 8px;border-radius:6px;margin:-2px -8px':''}"><div class="ai-field-label">Amount (from email)</div><div class="ai-field-value">${fmtCur(t.amount_requested, t.currency)}${t.has_mismatch?' &#9888;':t.amount_on_document?' &#10003;':''}</div></div>
       <div class="ai-field"><div class="ai-field-label">Type</div><div class="ai-field-value">${t.type}</div></div>
       <div class="ai-field"><div class="ai-field-label">Approvers</div><div class="ai-field-value">${approversList}</div></div>
     </div>`;
     html += `<div class="ai-card vision-ai"><div class="ai-card-title">Document Analysis</div>
       <div class="ai-field"><div class="ai-field-label">Document Type</div><div class="ai-field-value">${t.document_type||'Unknown'}</div></div>
-      <div class="ai-field" style="${t.has_mismatch?'background:#fef3c7;padding:6px 8px;border-radius:6px;margin:-2px -8px':t.amount_on_document?'background:#dcfce7;padding:6px 8px;border-radius:6px;margin:-2px -8px':''}"><div class="ai-field-label">Amount (from document)</div><div class="ai-field-value">${t.amount_on_document?fmt(t.amount_on_document)+' MMK':'N/A'}${t.has_mismatch?' &#9888;':t.amount_on_document?' &#10003;':''}</div></div>
+      <div class="ai-field" style="${t.has_mismatch?'background:#fef3c7;padding:6px 8px;border-radius:6px;margin:-2px -8px':t.amount_on_document?'background:#dcfce7;padding:6px 8px;border-radius:6px;margin:-2px -8px':''}"><div class="ai-field-label">Amount (from document)</div><div class="ai-field-value">${t.amount_on_document?fmtCur(t.amount_on_document, t.currency):'N/A'}${t.has_mismatch?' &#9888;':t.amount_on_document?' &#10003;':''}</div></div>
       <div class="ai-field"><div class="ai-field-label">Confidence</div><div class="confidence-bar"><div class="confidence-fill" style="width:${conf}%"></div></div><div style="font-size:12px;margin-top:2px;color:#7c3aed;font-weight:600">${conf}%</div></div>
       <div class="ai-field"><div class="ai-field-label">Signers on Document</div><div class="ai-field-value">${(t.document_signers||[]).map(s=>s.name+(s.role?' ('+s.role+')':'')).join(', ')||'None found'}</div></div>
       ${t.depositor_name?'<div class="ai-field"><div class="ai-field-label">Depositor</div><div class="ai-field-value">'+t.depositor_name+'</div></div>':''}
@@ -3005,21 +3011,21 @@ function renderAIPipelineSection(t){
       var empDiff2 = empTotal2 > 0 ? Math.abs(empTotal2 - (t.amount_requested||0)) : 0;
       var msg2 = '';
       if(emailDocDiff2 > 0){
-        msg2 = `Email: ${fmt(t.amount_requested)} MMK &nbsp;vs&nbsp; Document: ${fmt(t.amount_on_document)} MMK<br><span style="font-size:12px">Difference: ${fmt(emailDocDiff2)} MMK (${(t.amount_requested?((emailDocDiff2/t.amount_requested)*100).toFixed(1):'0')}%)</span>`;
+        msg2 = `Email: ${fmtCur(t.amount_requested, t.currency)} &nbsp;vs&nbsp; Document: ${fmtCur(t.amount_on_document, t.currency)}<br><span style="font-size:12px">Difference: ${fmtCur(emailDocDiff2, t.currency)} (${(t.amount_requested?((emailDocDiff2/t.amount_requested)*100).toFixed(1):'0')}%)</span>`;
       } else if(empDiff2 > 0){
-        msg2 = `Employees: ${fmt(empTotal2)} MMK &nbsp;vs&nbsp; Requested: ${fmt(t.amount_requested)} MMK<br><span style="font-size:12px">Gap: ${fmt(empDiff2)} MMK</span>`;
+        msg2 = `Employees: ${fmtCur(empTotal2, t.currency)} &nbsp;vs&nbsp; Requested: ${fmtCur(t.amount_requested, t.currency)}<br><span style="font-size:12px">Gap: ${fmtCur(empDiff2, t.currency)}</span>`;
       } else {
         msg2 = `Amount discrepancy detected &mdash; see Amount Check for details`;
       }
       html += `<div class="cross-validation-box mismatch"><div><strong>AMOUNT MISMATCH</strong><br>${msg2}</div></div>`;
     } else if(t.amount_on_document){
-      html += `<div class="cross-validation-box match"><div><strong>AMOUNT VERIFIED</strong><br>Email amount (${fmt(t.amount_requested)} MMK) matches document (${fmt(t.amount_on_document)} MMK)</div></div>`;
+      html += `<div class="cross-validation-box match"><div><strong>AMOUNT VERIFIED</strong><br>Email amount (${fmtCur(t.amount_requested, t.currency)}) matches document (${fmtCur(t.amount_on_document, t.currency)})</div></div>`;
     }
   } else {
     html += '<div class="detail-grid">';
     html += `<div class="ai-card text-ai"><div class="ai-card-title">Email Analysis</div>
       <div class="ai-field"><div class="ai-field-label">Company</div><div class="ai-field-value">${t.company}</div></div>
-      <div class="ai-field"><div class="ai-field-label">Amount</div><div class="ai-field-value">${fmt(t.amount_requested)} MMK</div></div>
+      <div class="ai-field"><div class="ai-field-label">Amount</div><div class="ai-field-value">${fmtCur(t.amount_requested, t.currency)}</div></div>
       <div class="ai-field"><div class="ai-field-label">Type</div><div class="ai-field-value">${t.type}</div></div>
       <div class="ai-field"><div class="ai-field-label">Approvers</div><div class="ai-field-value">${approversList}</div></div>
     </div>`;
@@ -3379,15 +3385,15 @@ function openTicketDetail(ticketId){
       var mismatchMsg = '';
       if(emailDocDiff > 0){
         var pct = t.amount_requested ? ((emailDocDiff / t.amount_requested) * 100).toFixed(1) : '0';
-        mismatchMsg = `Email: ${fmt(t.amount_requested)} MMK &nbsp;vs&nbsp; Document: ${fmt(t.amount_on_document)} MMK<br><span style="font-size:12px">Difference: ${fmt(emailDocDiff)} MMK (${pct}%) &mdash; Flagged for human review</span>`;
+        mismatchMsg = `Email: ${fmtCur(t.amount_requested, t.currency)} &nbsp;vs&nbsp; Document: ${fmtCur(t.amount_on_document, t.currency)}<br><span style="font-size:12px">Difference: ${fmtCur(emailDocDiff, t.currency)} (${pct}%) &mdash; Flagged for human review</span>`;
       } else if(empDiff > 0){
-        mismatchMsg = `Employees: ${fmt(empTotal)} MMK &nbsp;vs&nbsp; Requested: ${fmt(t.amount_requested)} MMK<br><span style="font-size:12px">Gap: ${fmt(empDiff)} MMK &mdash; Flagged for human review</span>`;
+        mismatchMsg = `Employees: ${fmtCur(empTotal, t.currency)} &nbsp;vs&nbsp; Requested: ${fmtCur(t.amount_requested, t.currency)}<br><span style="font-size:12px">Gap: ${fmtCur(empDiff, t.currency)} &mdash; Flagged for human review</span>`;
       } else {
         mismatchMsg = `Amount discrepancy detected &mdash; see Amount Check below for details`;
       }
       html += `<div class="cross-validation-box mismatch" style="margin-bottom:16px"><div><strong>AMOUNT MISMATCH</strong><br>${mismatchMsg}</div></div>`;
     } else if(t.amount_on_document){
-      html += `<div class="cross-validation-box match" style="margin-bottom:16px"><div><strong>AMOUNT VERIFIED</strong><br>Email amount (${fmt(t.amount_requested)} MMK) matches document (${fmt(t.amount_on_document)} MMK)</div></div>`;
+      html += `<div class="cross-validation-box match" style="margin-bottom:16px"><div><strong>AMOUNT VERIFIED</strong><br>Email amount (${fmtCur(t.amount_requested, t.currency)}) matches document (${fmtCur(t.amount_on_document, t.currency)})</div></div>`;
     }
   }
 
