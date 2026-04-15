@@ -126,6 +126,10 @@ export default async function handler(req, res) {
         doc_initiator_name: data.doc_initiator_name || '',
         doc_purpose: data.doc_purpose || '',
         doc_cost_center: data.doc_cost_center || '',
+        // v11.4 Source Info: ticket-level fields for modal header row
+        // Note: currency is NOT included here — it's already handled above
+        // via `currency: data.currency || 'MMK'` in the existing insert fields.
+        corporate_wallet: data.corporate_wallet || '',
         n8n_source: true,
       })
       .select('id, ticket_number')
