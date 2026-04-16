@@ -1,0 +1,40 @@
+{
+  "name": "Test: n8n Sandbox Capabilities (zlib alternatives)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "When clicking 'Test workflow'",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = [];\n\ntry {\n  const ds = new DecompressionStream('deflate-raw');\n  results.push({ test: 'DecompressionStream', status: 'AVAILABLE', detail: 'Global class exists' });\n} catch(e) {\n  results.push({ test: 'DecompressionStream', status: 'BLOCKED', detail: e.message });\n}\n\ntry {\n  const z = require('node:zlib');\n  results.push({ test: 'require_node_zlib', status: 'AVAILABLE', detail: 'node: prefix works' });\n} catch(e) {\n  results.push({ test: 'require_node_zlib', status: 'BLOCKED', detail: e.message });\n}\n\ntry {\n  const r = new Response('test');\n  results.push({ test: 'Response_global', status: 'AVAILABLE', detail: 'Response class exists' });\n} catch(e) {\n  results.push({ test: 'Response_global', status: 'BLOCKED', detail: e.message });\n}\n\ntry {\n  const td = new TextDecoder('utf-8');\n  results.push({ test: 'TextDecoder', status: 'AVAILABLE', detail: 'Works' });\n} catch(e) {\n  results.push({ test: 'TextDecoder', status: 'BLOCKED', detail: e.message });\n}\n\ntry {\n  const buf = Buffer.from([0x50, 0x4B]);\n  const arr = new Uint8Array(buf);\n  results.push({ test: 'Buffer_Uint8Array', status: 'AVAILABLE', detail: 'Interop works' });\n} catch(e) {\n  results.push({ test: 'Buffer_Uint8Array', status: 'BLOCKED', detail: e.message });\n}\n\nreturn results.map(r => ({ json: r }));",
+        "mode": "runOnceForAllItems"
+      },
+      "id": "test-sandbox",
+      "name": "Test Sandbox Capabilities",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300]
+    }
+  ],
+  "connections": {
+    "When clicking 'Test workflow'": {
+      "main": [
+        [
+          {
+            "node": "Test Sandbox Capabilities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
