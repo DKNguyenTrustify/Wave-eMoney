@@ -174,7 +174,55 @@ Parse & Validate v3 inherits v12.4's smart "not_disbursement" detection. For the
 - Stuck badge only visible when >0 stuck rows (auto hide/show)
 - Click stuck badge → modal with details + recovery SQL hint
 
-### Next: P4 Test — DK opens dashboard, verifies counts reflect email_queue state
+### Phase 4 TEST — ✅ VERIFIED (Apr 17 late afternoon)
+- Opened index.html locally → Pipeline Queue strip renders, Completed: 1 visible
+- Deployed to Vercel (project-ii0tm.vercel.app) → same result live
+- Pulse animation working, strip visually integrated above existing 3 stat cards
+
+---
+
+## ✅ Git Commit — Apr 17 late afternoon
+
+**Commit:** `e62b3e9` — "v13.0 KAN-46: Durable queue architecture"
+**Pushed to:** origin + yoma (Vercel Pro auto-deploys from yoma)
+**Vercel deploy:** LIVE on project-ii0tm.vercel.app as of Apr 17 ~5 PM
+
+### Files added (22 total)
+- 3 SQL files in `sql/`
+- 2 n8n workflow JSONs (Spooler + Worker)
+- 4 helper files in `pipelines/` (build script, extracted code, staging notes)
+- 9 doc files in `docs/` (AI Council rounds, synthesis, decision, log, Vinh message)
+- 4 Jira PDF + analysis files in `docs/jira/`
+- `index.html` modified (Pipeline Queue card)
+
+---
+
+## Phase 6: Real-Email End-to-End Test — IN PROGRESS (Apr 17 ~5 PM)
+
+### Pre-flight state (verified)
+- v12.4 workflow: ACTIVE (currently production)
+- Spooler v1: INACTIVE, imported, configured
+- Worker v1: INACTIVE, imported, configured
+- email_queue: 1 row (test-spooler-002-apr17, status=completed)
+- email_queue_stuck: 0 rows
+- All 3 workflows visible in n8n sidebar
+
+### Planned swap sequence (when resumed)
+1. Deactivate v12.4 (toggle OFF)
+2. Wait 10s for any in-flight execution
+3. Activate Spooler (toggle ON)
+4. Activate Worker (toggle ON)
+
+### Planned tests
+- **Single-email**: real payroll email, watch lifecycle on dashboard+n8n
+- **Burst (5 emails)**: prove serialization, no loss, queue drains correctly
+
+### Rollback plan (<30 sec)
+Deactivate Spooler + Worker → Activate v12.4 → emails in Outlook re-polled
+
+---
+
+*This session PAUSED at Phase 6 pre-flight complete. Context compaction recommended. Resume instructions in MEMORY.md.*
 
 ---
 
@@ -227,4 +275,65 @@ Parse & Validate v3 inherits v12.4's smart "not_disbursement" detection. For the
 - AI Council Round 5 prompt: `docs/kan46_round5_graph_api_critique_prompt.md`
 - KAN-46 ticket analysis: `docs/jira/KAN-46_n8n_Performance_Optimize_Analysis.md`
 
-*Last updated: Apr 17, 2026 — Phase 1 starting*
+---
+
+## Apr 17 evening — v13.1 pivot (Round 6 zero-waste architecture)
+
+### Trigger for pivot
+v13.0 Worker Cron @ 30s burned ~2,880 executions/day. Hit n8n trial cap warning after ~7 hours of active work. DK unpublished Worker to preserve quota. TKT-053 (Acme single-email test) had ALREADY passed end-to-end earlier in the session — so the architecture is proven. Just the Cron trigger was wrong.
+
+### Myanmar reality check
+Rita's team testing is **gradual, week-long stress test** (not single demo). Apr 20 - May 1+. Pressure off. Design must be **stable and cap-safe for 2-3 weeks**, not peak-performance for 30 min.
+
+### AI Council Round 6
+7/7 unanimous on Verdict D: Supabase Database Webhook + pg_cron sweeper replace n8n Cron entirely.
+
+Best-of-breed synthesis:
+- **Claude**: Single-flight gate IN the database trigger — prevents parallel webhook fan-out at source
+- **Gemini**: n8n Inner-Loop pattern — drains queue in 1 execution (deferred to v13.2 for simplicity)
+- **DeepSeek**: Spooler multi-row INSERT batching (deferred to v13.2)
+- **Qwen**: Gemini retry-with-backoff (CRITICAL — implemented in v13.1)
+- **Perplexity**: Confirmed empirically that polling = free if no data (validates keeping Outlook Trigger)
+- **Grok**: n8n trial concurrency cap = 5 FIFO
+- **GPT**: Advisory lock (deferred; self-chain + single-flight sufficient for v13.1)
+
+### v13.1 artifacts (this commit)
+1. `sql/kan46_v13_1_triggers.sql` — Database trigger with single-flight gate + pg_cron sweeper + worker_config + audit view
+2. `sql/kan46_v13_1_rollback.sql` — rollback SQL
+3. `pipelines/n8n-workflow-worker-v2.json` — Worker v2 (Webhook trigger, self-chain, Gemini retry)
+4. `pipelines/_worker_v2_build.mjs` — build script
+5. `docs/kan46_v13_1_unified_implementation_plan.md` — comprehensive plan
+6. `docs/kan46_v13_1_rollback_runbook.md` — rollback procedure
+7. `docs/kan46_round6_optimization_prompt.md` — Council prompt (saved for reference)
+
+### Execution count projection
+| Source | Daily | 13 days |
+|--------|-------|---------|
+| Spooler (Outlook baseline) | 10-15 | 150-200 |
+| Worker (self-chain, 1/email, single-flight prevents parallel) | 3-30 | 50-400 |
+| pg_cron recovery (conditional) | 0-1 | 5-15 |
+| Buffer | 5 | 65 |
+| **TOTAL** | **~20-50** | **~270-680** |
+
+Budget: 902. Max: ~680. Buffer: ~220 (24%). Fits heavy Myanmar stress testing.
+
+### Hand-off steps for DK
+1. Run `sql/kan46_v13_1_triggers.sql` in Supabase (update `worker_url` + `webhook_secret` first)
+2. Import `pipelines/n8n-workflow-worker-v2.json` into n8n
+3. Paste secrets in Worker v2 code nodes
+4. Get webhook URL from `Webhook: Worker Dispatch` node
+5. UPDATE worker_config with actual webhook URL + secret
+6. Deactivate v12.4, activate Spooler + Worker v2
+7. Send 1 test email → verify chain works
+8. Send 5 burst → verify single-flight gate prevents parallel fan-out
+
+### Deferred to v13.2 (post-Monday testing)
+- n8n Inner-Loop via cyclic connections (if self-chain proves insufficient)
+- Spooler multi-row INSERT batching
+- Edge Function bridge (if pg_net reliability issues)
+- Advisory lock / explicit serialization (if burst issues emerge)
+
+### Decision needed by Apr 25
+n8n trial expires ~May 1. Options: upgrade Starter ($20/mo 2500 exec) OR accept shutdown. See `memory/project_n8n_trial_expiration_may1.md`.
+
+*Last updated: Apr 17, 2026 — v13.1 code shipped, awaiting DK deployment*
