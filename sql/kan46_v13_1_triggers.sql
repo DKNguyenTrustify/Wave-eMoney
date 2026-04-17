@@ -19,16 +19,31 @@
 --
 -- ═══════════════════════════════════════════════════════════════════
 --
--- INSTRUCTIONS FOR DK:
---   1. BEFORE RUNNING:
---      - Replace `REPLACE_WITH_WORKER_WEBHOOK_URL` with your actual Worker v2
---        webhook URL (from n8n after Worker v2 is imported and activated)
---      - Replace `REPLACE_WITH_WEBHOOK_SECRET` with the shared secret
---   2. Open Supabase SQL Editor:
---      https://app.supabase.com/project/dicluyfkfqlqjwqikznl/sql
---   3. Paste this file
---   4. Run
---   5. Scroll to VERIFICATION SECTION at bottom and run those queries
+-- ORDER OF OPERATIONS (IMPORTANT):
+--   This SQL must run AFTER Worker v2 is imported into n8n, because you
+--   need the Worker v2 webhook URL to populate the worker_config table.
+--
+--   Full sequence:
+--     1. Import `pipelines/n8n-workflow-worker-v2.json` into n8n Cloud
+--     2. Paste all secrets in Worker v2 code nodes + attach Outlook creds
+--     3. Click on the "Webhook: Worker Dispatch" node
+--        → copy the **Production URL** (looks like:
+--          https://tts-test.app.n8n.cloud/webhook/emi-worker-v2)
+--     4. Edit section 2 of THIS FILE:
+--        - Replace REPLACE_WITH_WORKER_WEBHOOK_URL with that Production URL
+--        - Replace REPLACE_WITH_WEBHOOK_SECRET with any strong random string
+--          (same secret will be checked by Worker v2 later — keep it handy)
+--     5. Paste this file into Supabase SQL Editor and run:
+--        https://app.supabase.com/project/dicluyfkfqlqjwqikznl/sql
+--     6. Run the VERIFICATION SECTION (V1-V6 at bottom) to confirm setup
+--     7. Activate Worker v2 + Spooler in n8n (deactivate v12.4)
+--     8. Smoke test (V7 at bottom, OR send a real test email)
+--
+--   Safety: trigger function has a guard — it refuses to fire if worker_url
+--   still contains 'REPLACE_WITH', so running with placeholders won't cause
+--   harm (just won't actually trigger anything). You CAN run with placeholders
+--   first and UPDATE worker_config later, but the single-pass flow above is
+--   simpler.
 --
 -- IDEMPOTENCY: All statements use CREATE ... IF NOT EXISTS / CREATE OR REPLACE
 --   → Safe to re-run
@@ -63,12 +78,14 @@ CREATE TABLE IF NOT EXISTS worker_config (
   CHECK (id = 1)  -- Single row only
 );
 
--- Upsert config (DK: edit these values BEFORE running)
+-- Upsert config — values populated for DK's deployment (Apr 17, 2026)
+-- Worker URL: Production webhook from "Webhook: Worker Dispatch" node in Worker v2
+-- Secret: shared with AI Parse & Validate v3 node (Option A — one key for maintenance)
 INSERT INTO worker_config (id, worker_url, webhook_secret)
 VALUES (
   1,
-  'REPLACE_WITH_WORKER_WEBHOOK_URL',   -- e.g. https://tts-test.app.n8n.cloud/webhook/emi-worker-v2
-  'REPLACE_WITH_WEBHOOK_SECRET'         -- shared secret between trigger and Worker
+  'https://dknguyen01trustify.app.n8n.cloud/webhook/emi-worker-v2',
+  'fc4855c6b0d765690fa1478d75870083157b79418492b1981a33ac9e8c14a9c7'
 )
 ON CONFLICT (id) DO UPDATE
 SET worker_url = EXCLUDED.worker_url,
