@@ -336,4 +336,52 @@ Budget: 902. Max: ~680. Buffer: ~220 (24%). Fits heavy Myanmar stress testing.
 ### Decision needed by Apr 25
 n8n trial expires ~May 1. Options: upgrade Starter ($20/mo 2500 exec) OR accept shutdown. See `memory/project_n8n_trial_expiration_may1.md`.
 
-*Last updated: Apr 17, 2026 — v13.1 code shipped, awaiting DK deployment*
+---
+
+## Apr 18 evening — v13.2 Notify sender on failure (commit 44dbc07)
+
+### Feature shipped
+Sender-facing failure notifications when Gemini extraction fails. Previously silent, now:
+- Client receives "Unable to process" email with user-friendly reason (from REASON_MAP)
+- Includes resubmission checklist (email body requirements + attachment format guidance)
+- Threads naturally in sender's inbox via `Re: [original subject]` subject line
+- CCs emoney@zeyalabs.ai for operator visibility
+- Skips notification for infra errors (api_error) — don't blame client for our outages
+- Self-send loop protection: Should Notify Sender? returns false when `from=emoney@zeyalabs.ai`
+
+### Worker v2 topology (v13.2)
+- 17 nodes (was 15 in v13.1.1)
+- 15 connections (was 13)
+- Workflow name: `EMI Worker v2 (KAN-46 v13.2) — Webhook + Self-Chain + Gemini Retry + Hardened Parse + Notify on Failure`
+
+### Validation test
+Simultaneous burst (ACME + Wave) sent at 21:49 GMT+7:
+- ACME → TKT-059 created, normal notification received ✅
+- Wave → status='failed', failure notification received in sender inbox ✅
+- No self-send, no loop, no 429 ✅
+
+### Flow
+```
+Is Diagnostic?
+  ├── true  → Should Notify Sender?
+  │             ├── true  → Send Failure Notification → Mark Failed → Chain Next
+  │             └── false → Mark Failed (Diagnostic) → Chain Next
+  │
+  └── false → Send Outlook Notification → Mark Complete → Chain Next
+```
+
+### Minor polish for v13.3
+`Mark Failed (Diagnostic)` should reach back via `$('AI Parse & Validate v3').first().json._reason` instead of `$input.item.json._reason` — the Outlook Send node strips item.json, causing error_message to fall back to `gemini_extraction_failed | unknown` instead of the more specific reason. Zero functional impact, only affects error_message logging precision. 5-min fix, defer to post-Monday.
+
+### Files changed
+- `pipelines/n8n-workflow-worker-v2.json` (+2 nodes, +2 connection paths, AI Parse enriched)
+- `pipelines/_worker_v2_notify_failure.mjs` — build script (NEW)
+- `docs/kan46_v13_2_notify_sender_on_failure_plan.md` — plan doc (NEW)
+
+### Full KAN-46 package shipped today + yesterday
+1. ✅ Durable queue architecture (v13.0, superseded)
+2. ✅ Zero-waste triggering via Database Webhook + pg_cron (v13.1)
+3. ✅ Hardened Gemini parser + Is Diagnostic routing (v13.1.1)
+4. ✅ Notify sender on failure (v13.2)
+
+*Last updated: Apr 18, 2026 — v13.2 shipped + validated. Monday Myanmar-ready.*
