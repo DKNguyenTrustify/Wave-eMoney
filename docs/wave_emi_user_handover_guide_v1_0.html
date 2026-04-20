@@ -1,0 +1,2285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wave EMI System — User Handover Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Manrope:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0F1419;
+    --ink-soft: #2A2F38;
+    --paper: #F7F3EC;
+    --paper-warm: #EFE8DB;
+    --paper-deep: #E5DCC8;
+    --primary: #1A2F4A;
+    --primary-soft: #2E4A6E;
+    --accent: #B8873A;
+    --accent-bright: #D4A64F;
+    --alert: #A32B24;
+    --alert-soft: #F2D9D6;
+    --safe: #2D5F3F;
+    --safe-soft: #D7E8DC;
+    --caution: #B8860B;
+    --caution-soft: #F4E4B8;
+    --rule: rgba(15, 20, 25, 0.12);
+    --rule-strong: rgba(15, 20, 25, 0.35);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Manrope', -apple-system, sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    font-size: 16px;
+    line-height: 1.65;
+    font-weight: 400;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+    background-image:
+      radial-gradient(circle at 15% 10%, rgba(184, 135, 58, 0.04) 0%, transparent 40%),
+      radial-gradient(circle at 85% 60%, rgba(26, 47, 74, 0.03) 0%, transparent 40%);
+  }
+
+  /* Paper grain texture */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0.5;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.4 0 0 0 0 0.3 0 0 0 0.06 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 40px;
+    position: relative;
+    z-index: 2;
+  }
+
+  /* ═══ HERO ═══ */
+  .hero {
+    padding: 100px 0 80px;
+    position: relative;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .hero-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 60px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+
+  .hero-meta .left { display: flex; flex-direction: column; gap: 4px; }
+  .hero-meta .right { text-align: right; display: flex; flex-direction: column; gap: 4px; }
+  .hero-meta strong { color: var(--accent); font-weight: 600; }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 14px;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 30px;
+    font-weight: 500;
+  }
+  .hero-badge::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    background: var(--accent-bright);
+    border-radius: 50%;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  h1.hero-title {
+    font-family: 'Fraunces', serif;
+    font-weight: 300;
+    font-size: clamp(48px, 7vw, 92px);
+    line-height: 0.98;
+    letter-spacing: -0.03em;
+    color: var(--ink);
+    margin-bottom: 30px;
+    font-variation-settings: "opsz" 144;
+  }
+  h1.hero-title em {
+    font-style: italic;
+    font-weight: 400;
+    color: var(--accent);
+  }
+
+  .hero-sub {
+    font-family: 'Fraunces', serif;
+    font-size: 22px;
+    line-height: 1.5;
+    color: var(--ink-soft);
+    font-weight: 300;
+    max-width: 680px;
+    margin-bottom: 50px;
+    font-style: italic;
+  }
+
+  .hero-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 24px;
+    padding: 30px 0;
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .hero-details .item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .hero-details .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    opacity: 0.7;
+  }
+  .hero-details .value {
+    font-family: 'Fraunces', serif;
+    font-size: 17px;
+    color: var(--ink);
+    font-weight: 400;
+  }
+
+  /* ═══ TABLE OF CONTENTS ═══ */
+  .toc {
+    padding: 80px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .section-eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-weight: 500;
+  }
+  .section-eyebrow::before {
+    content: '';
+    width: 24px;
+    height: 1px;
+    background: var(--accent);
+  }
+
+  h2.section-title {
+    font-family: 'Fraunces', serif;
+    font-weight: 300;
+    font-size: clamp(36px, 5vw, 56px);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    margin-bottom: 20px;
+  }
+  h2.section-title em { font-style: italic; color: var(--accent); font-weight: 400; }
+
+  .toc-list {
+    list-style: none;
+    margin-top: 40px;
+  }
+  .toc-list li {
+    display: grid;
+    grid-template-columns: 60px 1fr auto;
+    align-items: baseline;
+    padding: 18px 0;
+    border-bottom: 1px dashed var(--rule);
+    gap: 20px;
+    transition: all 0.3s;
+  }
+  .toc-list li:hover { padding-left: 12px; border-bottom-color: var(--accent); }
+  .toc-list a {
+    color: var(--ink);
+    text-decoration: none;
+    font-family: 'Fraunces', serif;
+    font-size: 22px;
+    font-weight: 400;
+    line-height: 1.2;
+    transition: color 0.2s;
+  }
+  .toc-list a:hover { color: var(--accent); }
+  .toc-list .num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--accent);
+    font-weight: 500;
+  }
+  .toc-list .dots {
+    flex: 1;
+    border-bottom: 1px dotted var(--rule-strong);
+    margin: 0 8px;
+    align-self: center;
+    height: 1px;
+  }
+
+  /* ═══ SECTIONS ═══ */
+  section.chapter {
+    padding: 100px 0;
+    border-bottom: 1px solid var(--rule);
+    position: relative;
+  }
+
+  .chapter-number {
+    font-family: 'Fraunces', serif;
+    font-size: 180px;
+    font-weight: 200;
+    line-height: 1;
+    color: var(--accent);
+    opacity: 0.18;
+    position: absolute;
+    top: 60px;
+    right: 40px;
+    z-index: 0;
+    font-style: italic;
+  }
+
+  .chapter-header {
+    margin-bottom: 50px;
+    position: relative;
+    z-index: 2;
+  }
+
+  h3.chapter-title {
+    font-family: 'Fraunces', serif;
+    font-weight: 300;
+    font-size: clamp(32px, 4.5vw, 48px);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    max-width: 700px;
+  }
+  h3.chapter-title em { font-style: italic; color: var(--accent); font-weight: 400; }
+
+  .chapter-body { position: relative; z-index: 2; }
+
+  .chapter-body p {
+    font-size: 17px;
+    line-height: 1.75;
+    margin-bottom: 20px;
+    color: var(--ink-soft);
+    max-width: 720px;
+  }
+
+  .chapter-body strong { color: var(--ink); font-weight: 600; }
+
+  h4.sub-head {
+    font-family: 'Fraunces', serif;
+    font-size: 26px;
+    font-weight: 400;
+    margin: 45px 0 18px;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+
+  h5.sub-sub-head {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: var(--primary);
+    margin: 30px 0 14px;
+  }
+
+  /* ═══ SECTION 1: FLOW INFOGRAPHIC ═══ */
+  .flow-infographic {
+    background: linear-gradient(135deg, var(--ink) 0%, var(--primary) 100%);
+    color: var(--paper);
+    padding: 60px 50px;
+    margin: 50px 0;
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+  }
+  .flow-infographic::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      radial-gradient(circle at 20% 30%, rgba(184, 135, 58, 0.25) 0%, transparent 50%),
+      radial-gradient(circle at 80% 70%, rgba(212, 166, 79, 0.15) 0%, transparent 50%);
+    pointer-events: none;
+  }
+  .flow-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent-bright);
+    margin-bottom: 8px;
+  }
+  .flow-headline {
+    font-family: 'Fraunces', serif;
+    font-size: 32px;
+    line-height: 1.2;
+    margin-bottom: 40px;
+    font-weight: 300;
+  }
+  .flow-headline em { font-style: italic; color: var(--accent-bright); }
+
+  .flow-steps {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    position: relative;
+    z-index: 2;
+  }
+  .flow-step {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(212, 166, 79, 0.25);
+    padding: 20px 16px;
+    backdrop-filter: blur(10px);
+    position: relative;
+    transition: all 0.4s;
+  }
+  .flow-step:hover {
+    background: rgba(212, 166, 79, 0.12);
+    transform: translateY(-4px);
+    border-color: var(--accent-bright);
+  }
+  .flow-step .step-num {
+    font-family: 'Fraunces', serif;
+    font-size: 32px;
+    font-weight: 300;
+    font-style: italic;
+    color: var(--accent-bright);
+    line-height: 1;
+    margin-bottom: 12px;
+  }
+  .flow-step .step-label {
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--paper);
+    font-weight: 500;
+  }
+  .flow-arrow {
+    position: absolute;
+    right: -6px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--accent-bright);
+    font-size: 14px;
+    z-index: 3;
+  }
+  .flow-step:last-child .flow-arrow { display: none; }
+
+  .flow-summary {
+    margin-top: 40px;
+    padding-top: 30px;
+    border-top: 1px solid rgba(212, 166, 79, 0.25);
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 20px;
+    font-weight: 300;
+    color: var(--paper-warm);
+    position: relative;
+    z-index: 2;
+  }
+  .flow-summary strong {
+    color: var(--accent-bright);
+    font-weight: 500;
+  }
+
+  /* ═══ SECTION 2: DANGER/SAFETY POSTER ═══ */
+  .danger-poster {
+    margin: 40px 0 50px;
+    border: 3px solid var(--alert);
+    background: var(--paper-warm);
+    padding: 0;
+    position: relative;
+    overflow: hidden;
+  }
+  .danger-header {
+    background: repeating-linear-gradient(
+      45deg,
+      var(--alert),
+      var(--alert) 20px,
+      #8b2520 20px,
+      #8b2520 40px
+    );
+    padding: 20px 40px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    color: white;
+  }
+  .danger-icon {
+    width: 48px;
+    height: 48px;
+    background: var(--paper);
+    color: var(--alert);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 900;
+    font-size: 28px;
+    font-family: 'Fraunces', serif;
+    flex-shrink: 0;
+  }
+  .danger-header-text {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    font-weight: 600;
+    text-shadow: 1px 1px 0 rgba(0,0,0,0.3);
+  }
+  .danger-body { padding: 40px; }
+  .danger-rule {
+    font-family: 'Fraunces', serif;
+    font-size: 32px;
+    line-height: 1.25;
+    color: var(--alert);
+    font-weight: 400;
+    margin-bottom: 28px;
+    text-align: center;
+    padding: 20px;
+    border-top: 2px solid var(--alert);
+    border-bottom: 2px solid var(--alert);
+  }
+  .danger-rule em { font-style: italic; font-weight: 500; }
+
+  .donts-dos {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 30px 0;
+  }
+  .dont-card, .do-card {
+    padding: 24px;
+    border-radius: 2px;
+  }
+  .dont-card {
+    background: var(--alert-soft);
+    border-left: 4px solid var(--alert);
+  }
+  .do-card {
+    background: var(--safe-soft);
+    border-left: 4px solid var(--safe);
+  }
+  .dont-card .card-head, .do-card .card-head {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .dont-card .card-head { color: var(--alert); }
+  .do-card .card-head { color: var(--safe); }
+  .dont-card .card-head::before { content: '✕'; font-size: 16px; font-weight: 900; }
+  .do-card .card-head::before { content: '✓'; font-size: 16px; font-weight: 900; }
+  .dont-card p, .do-card p { font-size: 14px; color: var(--ink); margin: 0; line-height: 1.6; }
+
+  .consequences-box {
+    background: var(--paper-deep);
+    padding: 28px 32px;
+    margin-top: 24px;
+    border-left: 4px solid var(--ink);
+  }
+  .consequences-box h5 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--ink);
+    margin-bottom: 16px;
+    font-weight: 600;
+  }
+  .consequences-box p {
+    font-size: 15px;
+    margin-bottom: 14px;
+    color: var(--ink-soft);
+  }
+  .consequences-list {
+    counter-reset: c;
+    list-style: none;
+    margin: 16px 0;
+  }
+  .consequences-list li {
+    counter-increment: c;
+    padding: 8px 0 8px 40px;
+    position: relative;
+    font-size: 15px;
+    color: var(--ink);
+    line-height: 1.6;
+  }
+  .consequences-list li::before {
+    content: counter(c, decimal-leading-zero);
+    position: absolute;
+    left: 0;
+    top: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--alert);
+    font-weight: 600;
+    letter-spacing: 0.1em;
+  }
+  .unsure-note {
+    text-align: center;
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 18px;
+    padding: 20px;
+    color: var(--ink);
+    border-top: 1px dashed var(--rule-strong);
+    margin-top: 20px;
+  }
+  .unsure-note strong { color: var(--alert); font-style: normal; font-weight: 600; }
+
+  /* ═══ CHECKLIST ═══ */
+  .checklist {
+    list-style: none;
+    margin: 24px 0;
+  }
+  .checklist li {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 14px 0;
+    border-bottom: 1px dashed var(--rule);
+    font-size: 16px;
+    line-height: 1.6;
+  }
+  .checklist li:last-child { border-bottom: none; }
+  .checklist-box {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border: 2px solid var(--ink);
+    flex-shrink: 0;
+    background: var(--paper);
+    margin-top: 2px;
+  }
+  .checklist code {
+    background: var(--paper-warm);
+    padding: 2px 8px;
+    border-radius: 2px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    color: var(--primary);
+    font-weight: 500;
+  }
+
+  .email-rules-box {
+    background: var(--paper-warm);
+    border: 1px solid var(--rule);
+    padding: 28px 32px;
+    margin-top: 24px;
+    border-left: 4px solid var(--primary);
+  }
+  .email-rules-box h5 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--primary);
+    margin-bottom: 14px;
+    font-weight: 600;
+  }
+  .email-rules-box ul { list-style: none; }
+  .email-rules-box li {
+    padding: 8px 0 8px 20px;
+    font-size: 15px;
+    color: var(--ink-soft);
+    position: relative;
+    line-height: 1.6;
+  }
+  .email-rules-box li::before {
+    content: '→';
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .email-rules-box code {
+    background: var(--paper);
+    padding: 2px 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--primary);
+    border-radius: 2px;
+  }
+
+  /* ═══ STEP CARDS ═══ */
+  .steps-container {
+    margin: 40px 0;
+    counter-reset: step;
+  }
+  .step-card {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    gap: 24px;
+    padding: 28px 0;
+    border-top: 1px solid var(--rule);
+    position: relative;
+  }
+  .step-card:last-child { border-bottom: 1px solid var(--rule); }
+  .step-card .step-index {
+    font-family: 'Fraunces', serif;
+    font-size: 42px;
+    font-weight: 300;
+    font-style: italic;
+    color: var(--accent);
+    line-height: 1;
+  }
+  .step-card .step-index .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-style: normal;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+  }
+  .step-card .step-content h4 {
+    font-family: 'Fraunces', serif;
+    font-size: 24px;
+    font-weight: 400;
+    margin-bottom: 10px;
+    color: var(--ink);
+  }
+  .step-card .step-content p {
+    font-size: 15px;
+    margin-bottom: 12px;
+    color: var(--ink-soft);
+    line-height: 1.7;
+  }
+
+  /* ═══ CODE BLOCKS ═══ */
+  pre {
+    background: var(--ink);
+    color: var(--paper);
+    padding: 20px 24px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.7;
+    overflow-x: auto;
+    margin: 16px 0;
+    position: relative;
+  }
+  pre::before {
+    content: '';
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent-bright);
+    box-shadow: 14px 0 0 #888, 28px 0 0 #444;
+  }
+  pre {
+    padding-top: 40px;
+  }
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+  }
+  p code, li code, td code {
+    background: var(--paper-warm);
+    padding: 2px 7px;
+    border-radius: 2px;
+    color: var(--primary);
+    font-weight: 500;
+    font-size: 0.92em;
+  }
+
+  .tip {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 16px;
+    color: var(--ink-soft);
+    padding: 14px 20px;
+    background: var(--paper-warm);
+    border-left: 3px solid var(--accent);
+    margin: 16px 0;
+  }
+  .tip strong { color: var(--accent); font-style: normal; font-weight: 600; }
+
+  /* ═══ TABLES ═══ */
+  .table-wrapper {
+    margin: 24px 0;
+    overflow-x: auto;
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--paper);
+  }
+  th {
+    background: var(--primary);
+    color: var(--paper);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 14px 18px;
+    text-align: left;
+    font-weight: 600;
+  }
+  td {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--rule);
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--ink);
+    vertical-align: top;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:nth-child(even) td { background: var(--paper-warm); }
+  td strong { color: var(--ink); font-weight: 600; }
+
+  .table-rules td:first-child {
+    font-weight: 600;
+    color: var(--primary);
+    font-family: 'Fraunces', serif;
+    font-size: 15px;
+  }
+
+  /* Rules table: color-coded columns */
+  .rules-table th:nth-child(2), .rules-table td:nth-child(2) { color: var(--safe); }
+  .rules-table th:nth-child(4), .rules-table td:nth-child(4) { color: var(--alert); }
+
+  /* ═══ STATUS PILLS ═══ */
+  .status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin: 30px 0;
+  }
+  .status-card {
+    border: 1px solid var(--rule);
+    padding: 22px;
+    background: var(--paper);
+    position: relative;
+    border-top: 4px solid;
+    border-radius: 2px;
+  }
+  .status-card.green { border-top-color: var(--safe); }
+  .status-card.yellow { border-top-color: var(--caution); }
+  .status-card.red { border-top-color: var(--alert); }
+  .status-card.yellow-red { border-top: 4px solid var(--caution); border-right: 4px solid var(--alert); }
+  .status-name {
+    font-family: 'Fraunces', serif;
+    font-size: 20px;
+    font-weight: 500;
+    margin-bottom: 6px;
+    color: var(--ink);
+  }
+  .status-meaning {
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin-bottom: 12px;
+    line-height: 1.55;
+  }
+  .status-action {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding-top: 12px;
+    border-top: 1px dashed var(--rule);
+    color: var(--ink);
+    font-weight: 500;
+  }
+  .status-action .lbl { color: var(--ink-soft); display: block; margin-bottom: 4px; font-size: 10px; }
+
+  .risk-levels {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin: 20px 0;
+  }
+  .risk-card {
+    padding: 20px;
+    text-align: center;
+    border: 2px solid;
+    background: var(--paper);
+  }
+  .risk-card.low { border-color: var(--safe); color: var(--safe); }
+  .risk-card.medium { border-color: var(--caution); color: var(--caution); }
+  .risk-card.high { border-color: var(--alert); color: var(--alert); }
+  .risk-level {
+    font-family: 'Fraunces', serif;
+    font-size: 28px;
+    font-weight: 400;
+    display: block;
+    margin-bottom: 4px;
+  }
+  .risk-desc {
+    font-size: 12px;
+    color: var(--ink-soft);
+    line-height: 1.5;
+  }
+
+  /* ═══ CASE CARDS ═══ */
+  .case-card {
+    background: var(--paper-warm);
+    border: 1px solid var(--rule);
+    padding: 32px;
+    margin: 24px 0;
+    border-left: 5px solid var(--accent);
+    position: relative;
+  }
+  .case-card.red { border-left-color: var(--alert); }
+  .case-card.yellow { border-left-color: var(--caution); }
+  .case-letter {
+    position: absolute;
+    top: -12px;
+    left: 20px;
+    background: var(--ink);
+    color: var(--paper);
+    padding: 4px 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  .case-title {
+    font-family: 'Fraunces', serif;
+    font-size: 22px;
+    font-weight: 400;
+    margin-bottom: 16px;
+    color: var(--ink);
+    padding-top: 8px;
+  }
+  .case-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    font-weight: 600;
+    margin: 14px 0 6px;
+  }
+  .case-card p { font-size: 14px; line-height: 1.7; color: var(--ink); margin: 6px 0; }
+  .case-card ol, .case-card ul { margin: 8px 0 8px 22px; }
+  .case-card li { font-size: 14px; line-height: 1.7; padding: 3px 0; color: var(--ink); }
+  .case-card .example-box {
+    background: var(--paper);
+    padding: 12px 18px;
+    margin: 10px 0;
+    border-radius: 2px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--ink);
+    border: 1px dashed var(--rule-strong);
+  }
+
+  /* ═══ EMAIL EXAMPLE ═══ */
+  .email-example {
+    background: white;
+    border: 1px solid var(--rule-strong);
+    border-radius: 4px;
+    margin: 24px 0;
+    box-shadow: 0 4px 24px rgba(15, 20, 25, 0.06);
+    overflow: hidden;
+  }
+  .email-header {
+    background: var(--paper-warm);
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--rule);
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .email-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .email-dot:nth-child(1) { background: #FF5F57; }
+  .email-dot:nth-child(2) { background: #FEBC2E; }
+  .email-dot:nth-child(3) { background: #28C840; }
+  .email-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-left: auto;
+    font-weight: 500;
+  }
+  .email-body {
+    padding: 28px 32px;
+  }
+  .email-field {
+    display: grid;
+    grid-template-columns: 90px 1fr;
+    gap: 16px;
+    padding: 10px 0;
+    border-bottom: 1px dashed var(--rule);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+  }
+  .email-field:last-child { border-bottom: none; }
+  .email-field .k {
+    color: var(--ink-soft);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding-top: 3px;
+    font-weight: 600;
+  }
+  .email-field .v { color: var(--primary); font-weight: 500; }
+  .email-content {
+    padding: 20px 0;
+    border-top: 1px solid var(--rule);
+    margin-top: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--ink);
+    white-space: pre-line;
+    line-height: 1.8;
+  }
+
+  /* ═══ CONTACT CARD ═══ */
+  .contact-card {
+    background: linear-gradient(135deg, var(--ink) 0%, var(--primary) 100%);
+    color: var(--paper);
+    padding: 40px;
+    margin: 30px 0;
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+  }
+  .contact-card::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -10%;
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
+    opacity: 0.15;
+    pointer-events: none;
+  }
+  .contact-eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent-bright);
+    margin-bottom: 10px;
+  }
+  .contact-name {
+    font-family: 'Fraunces', serif;
+    font-size: 36px;
+    font-weight: 300;
+    margin-bottom: 6px;
+  }
+  .contact-name em { font-style: italic; color: var(--accent-bright); }
+  .contact-role {
+    font-size: 15px;
+    color: var(--paper-warm);
+    opacity: 0.8;
+    margin-bottom: 24px;
+  }
+  .contact-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 30px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(212, 166, 79, 0.25);
+  }
+  .contact-meta .mi {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .contact-meta .lbl {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent-bright);
+    font-weight: 500;
+  }
+  .contact-meta .val {
+    font-size: 15px;
+    color: var(--paper);
+    font-weight: 500;
+  }
+
+  .include-list {
+    list-style: none;
+    margin: 14px 0;
+  }
+  .include-list li {
+    padding: 6px 0 6px 24px;
+    position: relative;
+    font-size: 14px;
+    color: var(--ink-soft);
+  }
+  .include-list li::before {
+    content: '';
+    position: absolute;
+    left: 6px;
+    top: 14px;
+    width: 8px;
+    height: 1px;
+    background: var(--accent);
+  }
+
+  .response-times {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin: 20px 0;
+  }
+  .rt-card {
+    padding: 18px;
+    background: var(--paper-warm);
+    border-left: 3px solid var(--primary);
+  }
+  .rt-card.urgent { border-left-color: var(--alert); background: var(--alert-soft); }
+  .rt-card .when {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--primary);
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .rt-card.urgent .when { color: var(--alert); }
+  .rt-card .how {
+    font-size: 14px;
+    color: var(--ink);
+    line-height: 1.5;
+  }
+
+  .donts-final {
+    background: var(--alert-soft);
+    padding: 24px 28px;
+    margin: 24px 0;
+    border: 1px solid var(--alert);
+    border-radius: 2px;
+  }
+  .donts-final h5 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--alert);
+    margin-bottom: 12px;
+    font-weight: 700;
+  }
+  .donts-final ul { list-style: none; }
+  .donts-final li {
+    padding: 8px 0 8px 28px;
+    position: relative;
+    font-size: 14px;
+    color: var(--ink);
+    line-height: 1.6;
+  }
+  .donts-final li::before {
+    content: '✕';
+    position: absolute;
+    left: 0;
+    top: 8px;
+    color: var(--alert);
+    font-weight: 900;
+    font-size: 14px;
+  }
+
+  /* ═══ SIGN-OFF ═══ */
+  .signoff-section {
+    background: var(--paper-warm);
+    padding: 60px;
+    margin: 40px 0;
+    border: 2px double var(--ink);
+    position: relative;
+  }
+  .signoff-section::before {
+    content: 'OFFICIAL';
+    position: absolute;
+    top: 20px;
+    right: -30px;
+    background: var(--alert);
+    color: var(--paper);
+    padding: 6px 40px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    transform: rotate(15deg);
+    font-weight: 700;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  }
+
+  .agreement-list {
+    counter-reset: agree;
+    list-style: none;
+    margin: 24px 0;
+  }
+  .agreement-list li {
+    counter-increment: agree;
+    padding: 14px 0 14px 50px;
+    position: relative;
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--ink);
+    border-bottom: 1px dashed var(--rule);
+  }
+  .agreement-list li:last-child { border-bottom: none; }
+  .agreement-list li::before {
+    content: counter(agree, decimal-leading-zero);
+    position: absolute;
+    left: 0;
+    top: 14px;
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 22px;
+    color: var(--accent);
+    font-weight: 400;
+  }
+
+  .signature-block {
+    margin: 40px 0 20px;
+  }
+  .sig-group-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--primary);
+    margin-bottom: 16px;
+    font-weight: 700;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--primary);
+  }
+  .signature-block table { background: transparent; }
+  .signature-block th {
+    background: transparent;
+    color: var(--ink);
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--rule-strong);
+  }
+  .signature-block td {
+    background: transparent !important;
+    padding: 20px 14px;
+    font-size: 14px;
+  }
+  .sig-line {
+    border-bottom: 1px solid var(--ink);
+    display: inline-block;
+    width: 160px;
+    height: 1.2em;
+  }
+
+  /* ═══ APPENDIX QUICK REF ═══ */
+  .quick-ref {
+    background: linear-gradient(135deg, var(--paper-warm), var(--paper-deep));
+    padding: 50px;
+    border: 2px solid var(--ink);
+    margin: 40px 0;
+    position: relative;
+  }
+  .qr-label {
+    position: absolute;
+    top: -14px;
+    left: 40px;
+    background: var(--ink);
+    color: var(--paper);
+    padding: 6px 18px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    font-weight: 600;
+  }
+  .qr-title {
+    font-family: 'Fraunces', serif;
+    font-size: 32px;
+    font-weight: 300;
+    font-style: italic;
+    color: var(--ink);
+    margin-bottom: 6px;
+  }
+  .qr-sub {
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin-bottom: 30px;
+    font-style: italic;
+  }
+  .qr-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0;
+    border-top: 1px solid var(--ink);
+    border-left: 1px solid var(--ink);
+  }
+  .qr-item {
+    padding: 18px 20px;
+    border-right: 1px solid var(--ink);
+    border-bottom: 1px solid var(--ink);
+    background: var(--paper);
+  }
+  .qr-item .key {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+  .qr-item .val {
+    font-size: 14px;
+    color: var(--ink);
+    font-weight: 500;
+    font-family: 'JetBrains Mono', monospace;
+    word-break: break-all;
+  }
+  .qr-item.highlight {
+    background: var(--ink);
+    color: var(--paper);
+  }
+  .qr-item.highlight .key { color: var(--accent-bright); }
+  .qr-item.highlight .val { color: var(--paper); font-family: 'Fraunces', serif; font-size: 18px; font-style: italic; font-weight: 400; }
+
+  /* ═══ FOOTER ═══ */
+  footer {
+    padding: 60px 0 80px;
+    text-align: center;
+    border-top: 2px double var(--ink);
+  }
+  footer .end-mark {
+    font-family: 'Fraunces', serif;
+    font-size: 14px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--ink);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+  }
+  footer .end-mark::before, footer .end-mark::after {
+    content: '';
+    width: 60px;
+    height: 1px;
+    background: var(--ink);
+  }
+  footer p {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 14px;
+    color: var(--ink-soft);
+  }
+
+  /* ═══ ANCHOR OFFSET ═══ */
+  section.chapter, .toc { scroll-margin-top: 20px; }
+
+  /* ═══ RESPONSIVE ═══ */
+  @media (max-width: 768px) {
+    .container { padding: 0 24px; }
+    .hero { padding: 60px 0 50px; }
+    .hero-meta { flex-direction: column; gap: 16px; }
+    .hero-meta .right { text-align: left; }
+    section.chapter { padding: 60px 0; }
+    .chapter-number { font-size: 120px; top: 40px; right: 16px; }
+    .flow-steps { grid-template-columns: 1fr; }
+    .flow-arrow { display: none !important; }
+    .flow-infographic { padding: 40px 24px; }
+    .donts-dos { grid-template-columns: 1fr; }
+    .signoff-section { padding: 30px 24px; }
+    .quick-ref { padding: 30px 24px; }
+    .qr-grid { grid-template-columns: 1fr; }
+    .step-card { grid-template-columns: 1fr; gap: 10px; }
+    .step-card .step-index { font-size: 32px; }
+    .risk-levels { grid-template-columns: 1fr; }
+    .danger-rule { font-size: 22px; }
+  }
+
+  /* ═══ ANIMATIONS ═══ */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .hero > * { animation: fadeUp 0.8s ease-out backwards; }
+  .hero-badge { animation-delay: 0.1s; }
+  .hero-title { animation-delay: 0.2s; }
+  .hero-sub { animation-delay: 0.3s; }
+  .hero-details { animation-delay: 0.4s; }
+  .hero-meta { animation-delay: 0s; }
+
+  /* ═══ PRINT ═══ */
+  @media print {
+    body { background: white; }
+    body::before { display: none; }
+    section.chapter { page-break-before: auto; page-break-inside: avoid; padding: 30px 0; }
+    .hero { padding: 20px 0; }
+    .chapter-number { display: none; }
+    pre, .flow-infographic, .contact-card { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<!-- ═══════════════════ HERO ═══════════════════ -->
+<header class="hero">
+  <div class="hero-meta">
+    <div class="left">
+      <span>Document Ref / <strong>WAVE-EMI-HANDOVER-001</strong></span>
+      <span>Version 1.0 — Official Handover</span>
+    </div>
+    <div class="right">
+      <span>Issued / April 20, 2026</span>
+      <span>Classification / Internal Use</span>
+    </div>
+  </div>
+
+  <span class="hero-badge">Status: Active Handover</span>
+
+  <h1 class="hero-title">Wave EMI<br>System<br><em>User Handover Guide</em></h1>
+
+  <p class="hero-sub">An end-user handover for the salary disbursement system — how to submit requests, use the dashboard, handle data safely, and escalate when things go wrong.</p>
+
+  <div class="hero-details">
+    <div class="item">
+      <span class="label">Prepared by</span>
+      <span class="value">DK Nguyen</span>
+      <span class="label" style="opacity: 0.5; margin-top: -2px;">Trustify Technology</span>
+    </div>
+    <div class="item">
+      <span class="label">Primary recipient</span>
+      <span class="value">Win Win Naing</span>
+      <span class="label" style="opacity: 0.5; margin-top: -2px;">Wave Money Finance team</span>
+    </div>
+    <div class="item">
+      <span class="label">System phase</span>
+      <span class="value">Testing</span>
+      <span class="label" style="opacity: 0.5; margin-top: -2px;">Fake data only</span>
+    </div>
+    <div class="item">
+      <span class="label">Last reviewed</span>
+      <span class="value">2026-04-20</span>
+      <span class="label" style="opacity: 0.5; margin-top: -2px;">Document type: Reference</span>
+    </div>
+  </div>
+</header>
+
+<!-- ═══════════════════ TABLE OF CONTENTS ═══════════════════ -->
+<section class="toc">
+  <div class="section-eyebrow">Index</div>
+  <h2 class="section-title">Table of <em>Contents</em></h2>
+  <ol class="toc-list">
+    <li><span class="num">01</span><a href="#s1">What This System Does</a><span class="num">p. 01</span></li>
+    <li><span class="num">02</span><a href="#s2">Important — Data Safety Rule</a><span class="num">p. 02</span></li>
+    <li><span class="num">03</span><a href="#s3">Before You Start</a><span class="num">p. 03</span></li>
+    <li><span class="num">04</span><a href="#s4">How to Submit a Disbursement Request</a><span class="num">p. 04</span></li>
+    <li><span class="num">05</span><a href="#s5">How to Use the Dashboard</a><span class="num">p. 05</span></li>
+    <li><span class="num">06</span><a href="#s6">Understanding Ticket Status</a><span class="num">p. 06</span></li>
+    <li><span class="num">07</span><a href="#s7">What to Do When a Ticket Is Flagged</a><span class="num">p. 07</span></li>
+    <li><span class="num">08</span><a href="#s8">Example of Good Fake Test Data</a><span class="num">p. 08</span></li>
+    <li><span class="num">09</span><a href="#s9">What the System Cannot Do Yet</a><span class="num">p. 09</span></li>
+    <li><span class="num">10</span><a href="#s10">Getting Help</a><span class="num">p. 10</span></li>
+    <li><span class="num">11</span><a href="#s11">Acknowledgment and Sign-Off</a><span class="num">p. 11</span></li>
+  </ol>
+</section>
+
+<!-- ═══════════════════ SECTION 1 ═══════════════════ -->
+<section class="chapter" id="s1">
+  <span class="chapter-number">01</span>
+  <div class="chapter-header">
+    <div class="section-eyebrow">Chapter One</div>
+    <h3 class="chapter-title">What This <em>System Does</em></h3>
+  </div>
+  <div class="chapter-body">
+    <p>The Wave EMI System is an internal tool to help process salary disbursement requests.</p>
+    <p>When you send an email with a payroll request to the system, it will:</p>
+
+    <div class="flow-infographic">
+      <div class="flow-title">Automated Processing Pipeline</div>
+      <div class="flow-headline">From inbox to <em>approved ticket</em> in under a minute.</div>
+      <div class="flow-steps">
+        <div class="flow-step">
+          <div class="step-num">01</div>
+          <div class="step-label">Read your email automatically</div>
+          <div class="flow-arrow">▶</div>
+        </div>
+        <div class="flow-step">
+          <div class="step-num">02</div>
+          <div class="step-label">Read your attached file (PDF, image, or bank slip)</div>
+          <div class="flow-arrow">▶</div>
+        </div>
+        <div class="flow-step">
+          <div class="step-num">03</div>
+          <div class="step-label">Create a ticket in a dashboard for your team to review</div>
+          <div class="flow-arrow">▶</div>
+        </div>
+        <div class="flow-step">
+          <div class="step-num">04</div>
+          <div class="step-label">Send you back a confirmation email</div>
+          <div class="flow-arrow">▶</div>
+        </div>
+        <div class="flow-step">
+          <div class="step-num">05</div>
+          <div class="step-label">Let your team approve and prepare payment files</div>
+        </div>
+      </div>
+      <div class="flow-summary"><strong>In short:</strong> Email in → Ticket out. The system saves you from copying payroll data by hand.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ SECTION 2 ═══════════════════ -->
+<section class="chapter" id="s2">
+  <span class="chapter-number">02</span>
+  <div class="chapter-header">
+    <div class="section-eyebrow">Chapter Two · Critical</div>
+    <h3 class="chapter-title">Important — <em>Data Safety Rule</em></h3>
+  </div>
+  <div class="chapter-body">
+    <p><strong>Please read this section carefully before using the system.</strong></p>
+
+    <div class="danger-poster">
+      <div class="danger-header">
+        <div class="danger-icon">!</div>
+        <div class="danger-header-text">Mandatory Read · Data Safety · Do Not Skip</div>
+      </div>
+      <div class="danger-body">
+        <div class="danger-rule">The Rule: Use <em>FAKE data only</em>.<br>Never use real customer data.</div>
+
+        <p>This system is <strong>in testing phase</strong>. It works well, but it is <strong>not yet approved for enterprise banking use</strong>. This means:</p>
+        <ul style="list-style: none; margin: 16px 0;">
+          <li style="padding: 8px 0 8px 24px; position: relative; font-size: 15px; line-height: 1.65;">
+            <span style="position: absolute; left: 0; color: var(--alert); font-weight: 700;">—</span>
+            The servers that run the system are <strong>not yet bank-compliant</strong>.
+          </li>
+          <li style="padding: 8px 0 8px 24px; position: relative; font-size: 15px; line-height: 1.65;">
+            <span style="position: absolute; left: 0; color: var(--alert); font-weight: 700;">—</span>
+            The AI that reads your emails is a <strong>consumer-grade AI</strong>, not an enterprise AI.
+          </li>
+          <li style="padding: 8px 0 8px 24px; position: relative; font-size: 15px; line-height: 1.65;">
+            <span style="position: absolute; left: 0; color: var(--alert); font-weight: 700;">—</span>
+            Your data passes through <strong>cloud services outside of bank-controlled infrastructure</strong>.
+          </li>
+        </ul>
+
+        <h5 class="sub-sub-head" style="margin-top: 30px;">What this means for you</h5>
+
+        <div class="donts-dos">
+          <div class="dont-card">
+            <div class="card-head">Do NOT send</div>
+            <p>Real customer names, real phone numbers (real MSISDN), real NRC numbers, real account numbers, real company names of actual Wave Money clients, or real amounts tied to real people.</p>
+          </div>
+          <div class="do-card">
+            <div class="card-head">Do use</div>
+            <p>Made-up (fake, mock, fabricated) names, numbers, and amounts for all testing.</p>
+          </div>
+        </div>
+
+        <div class="consequences-box">
+          <h5>Why this matters</h5>
+          <p>If real customer data leaks through this system, the consequences fall on <strong>you as the user</strong>, not on Trustify Technology. By continuing to use this system, you agree that:</p>
+          <ol class="consequences-list">
+            <li>You are responsible for the data you submit.</li>
+            <li>You will use only fake / mock / fabricated data for all testing.</li>
+            <li>Using real customer data is a violation of this handover agreement.</li>
+            <li>Trustify Technology is not liable for any data exposure caused by user misuse.</li>
+          </ol>
+        </div>
+
+        <div class="unsure-note">If you are unsure whether data is <em>"fake enough"</em>, <strong>ask DK before sending.</strong></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ SECTION 3 ═══════════════════ -->
+<section class="chapter" id="s3">
+  <span class="chapter-number">03</span>
+  <div class="chapter-header">
+    <div class="section-eyebrow">Chapter Three</div>
+    <h3 class="chapter-title">Before <em>You Start</em></h3>
+  </div>
+  <div class="chapter-body">
+    <p>You will need:</p>
+
+    <ul class="checklist">
+      <li><span class="checklist-box"></span>An email account ending in <code>@zeyalabs.ai</code> (for example, <code>khanhnguyen@zeyalabs.ai</code>)</li>
+      <li><span class="checklist-box"></span>Internet connection</li>
+      <li><span class="checklist-box"></span>A web browser (Chrome, Edge, or Firefox recommended)</li>
+      <li><span class="checklist-box"></span>The dashboard URL saved as a bookmark: <code>https://project-ii0tm.vercel.app</code></li>
+      <li><span class="checklist-box"></span>This guide (keep it for reference)</li>
+    </ul>
+
+    <div class="email-rules-box">
+      <h5>Important rules about email addresses</h5>
+      <ul>
+        <li>The <strong>sender</strong> of every request email <strong>must be</strong> from the <code>@zeyalabs.ai</code> domain.</li>
+        <li>The <strong>receiver</strong> (where you send the email to) <strong>must always be</strong> <code>emoney@zeyalabs.ai</code>.</li>
+        <li>If you send from a Gmail, Yahoo, or any other address, the system will ignore your email.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ SECTION 4 ═══════════════════ -->
+<section class="chapter" id="s4">
+  <span class="chapter-number">04</span>
+  <div class="chapter-header">
+    <div class="section-eyebrow">Chapter Four · Procedure</div>
+    <h3 class="chapter-title">How to Submit a <em>Disbursement Request</em></h3>
+  </div>
+  <div class="chapter-body">
+    <p>Follow these steps every time you want to create a new ticket.</p>
+
+    <div class="steps-container">
+
+      <div class="step-card">
+        <div class="step-index"><span class="label">Step</span>01</div>
+        <div class="step-content">
+          <h4>Open your email client</h4>
+          <p>Use Outlook, Microsoft 365 Web, or any email tool connected to your <code>@zeyalabs.ai</code> account.</p>
+        </div>
+      </div>
+
+      <div class="step-card">
+        <div class="step-index"><span class="label">Step</span>02</div>
+        <div class="step-content">
+          <h4>Start a new email</h4>
+          <p>Click <strong>New Email</strong>.</p>
+        </div>
+      </div>
+
+      <div class="step-card">
+        <div class="step-index"><span class="label">Step</span>03</div>
+        <div class="step-content">
+          <h4>Fill in the "To" field</h4>
+          <p>Type exactly:</p>
+          <pre>emoney@zeyalabs.ai</pre>
+        </div>
+      </div>
+
+      <div class="step-card">
+        <div class="step-index"><span class="label">Step</span>04</div>
+        <div class="step-content">
+          <h4>Write the subject line</h4>
+          <p>Use this simple format:</p>
+          <pre>Salary disbursement — [Fake Company Name] — [Fake Amount] [Currency]</pre>
+          <p><strong>Example of a good subject</strong>:</p>
+          <pre>Salary disbursement — Test Corp Ltd — 2,450,000 MMK</pre>
+        </div>
+      </div>
+
+      <div class="step-card">
+        <div class="step-index"><span class="label">Step</span>05</div>
+        <div class="step-content">
+          <h4>Write the email body</h4>
+          <p>Include these fields (simple format, no HTML needed):</p>
+<pre>Company: [Fake company name]
+Total amount: [Amount and currency]
+Number of employees: [Number]
+Disbursement type: [SalaryToMA or SalaryToOTC]
+
+Approvals:
+- [Fake approver name 1] ([Role]) — Approved
+- [Fake approver name 2] ([Role]) — Approved
+
+Attached: payroll breakdown with employee details.</pre>
+          <div class="tip"><strong>Tip:</strong> You can copy the template from Section 8 of this guide and change the values.</div>
+        </div>
+      </div>
+
+      <div class="step-card">
+        <div class="step-index"><span class="label">Step</span>06</div>
+        <div class="step-content">
+          <h4>Attach your file</h4>
+          <p>Attach <strong>ONE</strong> of the following file types:</p>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr><th>File Type</th><th>Extension</th><th>Example</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><strong>PDF document</strong></td><td><code>.pdf</code></td><td>A bank slip or payroll report</td></tr>
+                <tr><td><strong>JPEG image</strong></td><td><code>.jpg</code> or <code>.jpeg</code></td><td>A photo of a handwritten payroll</td></tr>
+                <tr><td><strong>PNG image</strong></td><td><code>.png</code></td><td>A screenshot of a payroll table</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <h5 class="sub-sub-head">Rules</h5>
+          <ul style="list-style: none; margin: 8px 0;">
+            <li style="padding: 6px 0 6px 22px; position: relative; font-size: 15px; color: var(--ink-soft);"><span style="position: absolute; left: 0; color: var(--accent); font-weight: 700;">·</span> File size must be <strong>less than 10 MB</strong>.</li>
+            <li style="padding: 6px 0 6px 22px; position: relative; font-size: 15px; color: var(--ink-soft);"><span style="position: absolute; left: 0; color: var(--accent); font-weight: 700;">·</span> Do <strong>not</strong> password-protect the file. The system cannot read password-protected files.</li>
+            <li style="padding: 6px 0 6px 22px; position: relative; font-size: 15px; color: var(--ink-soft);"><span style="position: absolute; left: 0; color: var(--accent); font-weight: 700;">·</span> Attach <strong>only one file</strong> per email.</li>
+            <li style="padding: 6px 0 6px 22px; position: relative; font-size: 15px; color: var(--ink-soft);"><span style="position: absolute; left: 0; color: var(--accent); font-weight: 700;">·</span> The attachment should contain fake payroll data that matches the amounts in your email body.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="step-card">
+        <div class="step-index"><span class="label">Step</span>07</div>
+        <div class="step-content">
+          <h4>Send the email</h4>
+          <p>Click <strong>Send</strong>.</p>
+        </div>
+      </div>
+
+      <div class="step-card">
+        <div class="step-index"><span class="label">Step</span>08</div>
+        <div class="step-content">
+          <h4>Wait for confirmation (about 1 minute)</h4>
+          <p>Within about 1 minute, you will receive a <strong>confirmation email</strong> in your inbox from <code>emoney@zeyalabs.ai</code>. The email will contain:</p>
+          <ul style="list-style: none; margin: 8px 0;">
+            <li style="padding: 6px 0 6px 22px; position: relative; font-size: 15px; color: var(--ink-soft);"><span style="position: absolute; left: 0; color: var(--accent); font-weight: 700;">·</span> A <strong>Ticket ID</strong> (example: <code>TKT-005</code>)</li>
+            <li style="padding: 6px 0 6px 22px; position: relative; font-size: 15px; color: var(--ink-soft);"><span style="position: absolute; left: 0; color: var(--accent); font-weight: 700;">·</span> A summary of what the system read from your email and attachment</li>
+            <li style="padding: 6px 0 6px 22px; position: relative; font-size: 15px; color: var(--ink-soft);"><span style="position: absolute; left: 0; color: var(--accent); font-weight: 700;">·</span> A list of checks the system performed</li>
+            <li style="padding: 6px 0 6px 22px; position: relative; font-size: 15px; color: var(--ink-soft);"><span style="position: absolute; left: 0; color: var(--accent); font-weight: 700;">·</span> A link to the ticket in the dashboard</li>
+          </ul>
+          <p>If you do <strong>not</strong> receive a confirmation email within 5 minutes, see Section 10 (Getting Help).</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ SECTION 5 ═══════════════════ -->
+<section class="chapter" id="s5">
+  <span class="chapter-number">05</span>
+  <div class="chapter-header">
+    <div class="section-eyebrow">Chapter Five · Interface</div>
+    <h3 class="chapter-title">How to Use the <em>Dashboard</em></h3>
+  </div>
+  <div class="chapter-body">
+    <p>The dashboard shows all submitted tickets and their progress.</p>
+
+    <div class="steps-container">
+
+      <div class="step-card">
+        <div class="step-index"><span class="label">Step</span>01</div>
+        <div class="step-content">
+          <h4>Open the dashboard</h4>
+          <p>In your browser, go to:</p>
+          <pre>https://project-ii0tm.vercel.app</pre>
+          <div class="tip">Bookmark this page — you will use it every day.</div>
+        </div>
+      </div>
+
+      <div class="step-card">
+        <div class="step-index"><span class="label">Step</span>02</div>
+        <div class="step-content">
+          <h4>Review the summary bar at the top</h4>
+          <p>You will see four numbers at the top:</p>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 20px 0;">
+            <div style="padding: 20px; background: var(--paper-warm); border-top: 3px solid var(--primary);">
+              <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--primary); font-weight: 600; margin-bottom: 8px;">Pipeline Queue — LIVE</div>
+              <div style="font-size: 13px; color: var(--ink-soft); line-height: 1.7;">How many emails are currently being processed:<br>
+                <span style="color: var(--ink);"><strong>Pending:</strong> waiting to be read</span><br>
+                <span style="color: var(--ink);"><strong>Processing:</strong> being read right now</span><br>
+                <span style="color: var(--ink);"><strong>Completed:</strong> done, ticket created</span><br>
+                <span style="color: var(--ink);"><strong>Failed:</strong> system could not read it</span>
+              </div>
+            </div>
+            <div style="padding: 20px; background: var(--paper-warm); border-top: 3px solid var(--primary);">
+              <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--primary); font-weight: 600; margin-bottom: 8px;">All Emails</div>
+              <div style="font-size: 13px; color: var(--ink-soft); line-height: 1.7;">Total number of tickets created.</div>
+            </div>
+            <div style="padding: 20px; background: var(--paper-warm); border-top: 3px solid var(--caution);">
+              <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--caution); font-weight: 600; margin-bottom: 8px;">Mismatch</div>
+              <div style="font-size: 13px; color: var(--ink-soft); line-height: 1.7;">Tickets that need human review (something does not match).</div>
+            </div>
+            <div style="padding: 20px; background: var(--paper-warm); border-top: 3px solid var(--safe);">
+              <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--safe); font-weight: 600; margin-bottom: 8px;">Ready for Finance</div>
+              <div style="font-size: 13px; color: var(--ink-soft); line-height: 1.7;">Tickets ready for the Finance team to approve.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="step-card">
+        <div class="step-index"><span class="label">Step</span>03</div>
+        <div class="step-content">
+          <h4>Click on a ticket to open it</h4>
+          <p>Each ticket row shows:</p>
+          <ul style="list-style: none; margin: 8px 0;">
+            <li style="padding: 6px 0 6px 22px; position: relative; font-size: 15px; color: var(--ink-soft);"><span style="position: absolute; left: 0; color: var(--accent); font-weight: 700;">·</span> Ticket ID (example: <code>TKT-005</code>)</li>
+            <li style="padding: 6px 0 6px 22px; position: relative; font-size: 15px; color: var(--ink-soft);"><span style="position: absolute; left: 0; color: var(--accent); font-weight: 700;">·</span> Company name</li>
+            <li style="padding: 6px 0 6px 22px; position: relative; font-size: 15px; color: var(--ink-soft);"><span style="position: absolute; left: 0; color: var(--accent); font-weight: 700;">·</span> Type (MA or OTC)</li>
+            <li style="padding: 6px 0 6px 22px; position: relative; font-size: 15px; color: var(--ink-soft);"><span style="position: absolute; left: 0; color: var(--accent); font-weight: 700;">·</span> Amount</li>
+            <li style="padding: 6px 0 6px 22px; position: relative; font-size: 15px; color: var(--ink-soft);"><span style="position: absolute; left: 0; color: var(--accent); font-weight: 700;">·</span> Status</li>
+          </ul>
+          <p>Click any row to see full details.</p>
+        </div>
+      </div>
+
+      <div class="step-card">
+        <div class="step-index"><span class="label">Step</span>04</div>
+        <div class="step-content">
+          <h4>Review ticket details</h4>
+          <p>Inside a ticket, you can see:</p>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr><th>Section</th><th>What it tells you</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><strong>Amount Check</strong></td><td>Three-way match: email vs attachment vs employee total</td></tr>
+                <tr><td><strong>Original Attachment</strong></td><td>The file you submitted (click to expand)</td></tr>
+                <tr><td><strong>Auto-Extracted from Email</strong></td><td>Data the AI read from your email body</td></tr>
+                <tr><td><strong>From Attachment</strong></td><td>Data the AI read from your attached file</td></tr>
+                <tr><td><strong>Employee list</strong></td><td>Names, wallet numbers, and amounts from your attachment</td></tr>
+                <tr><td><strong>Field comparison table</strong></td><td>Side-by-side view of what email said vs what attachment said</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="step-card">
+        <div class="step-index"><span class="label">Step</span>05</div>
+        <div class="step-content">
+          <h4>Take action on the ticket</h4>
+          <p>Depending on status, you may:</p>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 16px 0;">
+            <div style="padding: 16px 20px; background: var(--safe-soft); border-left: 4px solid var(--safe);">
+              <div style="font-family: 'Fraunces', serif; font-size: 16px; color: var(--safe); font-weight: 500; margin-bottom: 4px;">Save &amp; Submit for Finance</div>
+              <div style="font-size: 13px; color: var(--ink-soft);">send the ticket for approval</div>
+            </div>
+            <div style="padding: 16px 20px; background: var(--alert-soft); border-left: 4px solid var(--alert);">
+              <div style="font-family: 'Fraunces', serif; font-size: 16px; color: var(--alert); font-weight: 500; margin-bottom: 4px;">Return to Client</div>
+              <div style="font-size: 13px; color: var(--ink-soft);">send it back if data is wrong</div>
+            </div>
+            <div style="padding: 16px 20px; background: var(--paper-deep); border-left: 4px solid var(--primary);">
+              <div style="font-family: 'Fraunces', serif; font-size: 16px; color: var(--primary); font-weight: 500; margin-bottom: 4px;">Generate CSV for Finance</div>
+              <div style="font-size: 13px; color: var(--ink-soft);">produce the payment files</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ SECTION 6 ═══════════════════ -->
+<section class="chapter" id="s6">
+  <span class="chapter-number">06</span>
+  <div class="chapter-header">
+    <div class="section-eyebrow">Chapter Six · Reference</div>
+    <h3 class="chapter-title">Understanding <em>Ticket Status</em></h3>
+  </div>
+  <div class="chapter-body">
+    <p>Every ticket has a status. Here is what each means:</p>
+
+    <div class="status-grid">
+      <div class="status-card green">
+        <div class="status-name">Normal</div>
+        <div class="status-meaning">All checks passed. Amounts match.</div>
+        <div class="status-action">
+          <span class="lbl">What You Should Do</span>
+          Review and approve if ready.
+        </div>
+      </div>
+      <div class="status-card green">
+        <div class="status-name">Ready for Finance</div>
+        <div class="status-meaning">Checked by Maker. Waiting for Finance.</div>
+        <div class="status-action">
+          <span class="lbl">What You Should Do</span>
+          Finance team should approve or reject.
+        </div>
+      </div>
+      <div class="status-card yellow-red">
+        <div class="status-name">Amount Mismatch</div>
+        <div class="status-meaning">Email amount does not match attachment amount.</div>
+        <div class="status-action">
+          <span class="lbl">What You Should Do</span>
+          See Section 7. Ask the sender to resubmit.
+        </div>
+      </div>
+      <div class="status-card yellow">
+        <div class="status-name">Asked Client</div>
+        <div class="status-meaning">System asked the client for missing info.</div>
+        <div class="status-action">
+          <span class="lbl">What You Should Do</span>
+          Wait for client to resubmit.
+        </div>
+      </div>
+      <div class="status-card red">
+        <div class="status-name">Failed</div>
+        <div class="status-meaning">System could not read the email or attachment.</div>
+        <div class="status-action">
+          <span class="lbl">What You Should Do</span>
+          See Section 7. Contact DK if unclear.
+        </div>
+      </div>
+    </div>
+
+    <h4 class="sub-head">Risk levels</h4>
+    <p>Each ticket also shows a <strong>Risk Level</strong>:</p>
+
+    <div class="risk-levels">
+      <div class="risk-card low">
+        <span class="risk-level">Low</span>
+        <span class="risk-desc">all checks passed, normal flow</span>
+      </div>
+      <div class="risk-card medium">
+        <span class="risk-level">Medium</span>
+        <span class="risk-desc">some data missing but not blocking</span>
+      </div>
+      <div class="risk-card high">
+        <span class="risk-level">High</span>
+        <span class="risk-desc">amount mismatch or missing required approver</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ SECTION 7 ═══════════════════ -->
+<section class="chapter" id="s7">
+  <span class="chapter-number">07</span>
+  <div class="chapter-header">
+    <div class="section-eyebrow">Chapter Seven · Troubleshooting</div>
+    <h3 class="chapter-title">What to Do When a <em>Ticket Is Flagged</em></h3>
+  </div>
+  <div class="chapter-body">
+
+    <div class="case-card red">
+      <span class="case-letter">Case A</span>
+      <h4 class="case-title">"Amount Mismatch"</h4>
+      <div class="case-label">What happened</div>
+      <p>The amount written in the email does not match the total in the attached file.</p>
+      <div class="case-label">Example</div>
+      <div class="example-box">Email says: 4,500 USD<br>Attachment total: 24,500 USD</div>
+      <div class="case-label">What to do</div>
+      <ol>
+        <li>Do <strong>not</strong> approve the ticket.</li>
+        <li>Click <strong>"Return to Client"</strong> in the dashboard.</li>
+        <li>Ask the sender to resubmit a new email with the correct amount.</li>
+        <li>Close or ignore the old ticket.</li>
+      </ol>
+    </div>
+
+    <div class="case-card red">
+      <span class="case-letter">Case B</span>
+      <h4 class="case-title">"Failed" — System could not read the document</h4>
+      <div class="case-label">What happened</div>
+      <p>The attached file could not be read by the AI. Common reasons:</p>
+      <ul>
+        <li>The file is password-protected.</li>
+        <li>The handwriting is unclear.</li>
+        <li>The image is blurry or upside down.</li>
+        <li>The file is corrupted.</li>
+      </ul>
+      <div class="case-label">What to do</div>
+      <ol>
+        <li>The sender will automatically receive an email explaining the problem.</li>
+        <li>Ask the sender to resubmit with a clearer file.</li>
+        <li>If the problem repeats, tell DK.</li>
+      </ol>
+    </div>
+
+    <div class="case-card yellow">
+      <span class="case-letter">Case C</span>
+      <h4 class="case-title">No confirmation email received within 5 minutes</h4>
+      <div class="case-label">What to do</div>
+      <ol>
+        <li>Check your spam / junk folder.</li>
+        <li>Verify the email was sent to exactly <code>emoney@zeyalabs.ai</code> (no typo).</li>
+        <li>Verify the sender email ends in <code>@zeyalabs.ai</code>.</li>
+        <li>If still no email, ping DK on Teams.</li>
+      </ol>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════════ SECTION 8 ═══════════════════ -->
+<section class="chapter" id="s8">
+  <span class="chapter-number">08</span>
+  <div class="chapter-header">
+    <div class="section-eyebrow">Chapter Eight · Template</div>
+    <h3 class="chapter-title">Example of <em>Good Fake Test Data</em></h3>
+  </div>
+  <div class="chapter-body">
+    <p>Copy and adapt this example for your own tests. All names, numbers, and amounts are <strong>fabricated</strong> — safe to use.</p>
+
+    <h4 class="sub-head">Example email</h4>
+
+    <div class="email-example">
+      <div class="email-header">
+        <span class="email-dot"></span><span class="email-dot"></span><span class="email-dot"></span>
+        <span class="email-title">New Message · Draft</span>
+      </div>
+      <div class="email-body">
+        <div class="email-field">
+          <span class="k">To</span>
+          <span class="v">emoney@zeyalabs.ai</span>
+        </div>
+        <div class="email-field">
+          <span class="k">Subject</span>
+          <span class="v">Salary disbursement — Test Corp Ltd — 2,450,000 MMK</span>
+        </div>
+        <div class="email-content">Company: Test Corp Ltd
+Total amount: 2,450,000 MMK
+Number of employees: 3
+Disbursement type: SalaryToMA
+
+Approvals:
+- Test Approver One (Sales HOD) — Approved on 2026-04-20
+- Test Approver Two (Finance Manager) — Approved on 2026-04-20
+
+Attached: payroll breakdown.
+
+Regards,
+[Your name] (QA test)</div>
+      </div>
+    </div>
+
+    <p><strong>Attachment:</strong> A fake PDF or image containing:</p>
+
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr><th>#</th><th>Employee Name</th><th>Wallet (fake MSISDN)</th><th>Amount</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>1</td><td>John Test Doe</td><td><code>09111111111</code></td><td>800,000 MMK</td></tr>
+          <tr><td>2</td><td>Jane Sample Smith</td><td><code>09222222222</code></td><td>850,000 MMK</td></tr>
+          <tr><td>3</td><td>Bob Mock Johnson</td><td><code>09333333333</code></td><td>800,000 MMK</td></tr>
+          <tr style="background: var(--ink) !important;">
+            <td colspan="2" style="color: var(--paper); font-weight: 700; background: var(--ink);"><strong>Total</strong></td>
+            <td style="background: var(--ink);"></td>
+            <td style="color: var(--accent-bright); font-weight: 700; background: var(--ink);"><strong>2,450,000 MMK</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h4 class="sub-head">Rules for fake data</h4>
+
+    <div class="table-wrapper">
+      <table class="rules-table">
+        <thead>
+          <tr>
+            <th>Data Type</th>
+            <th>Fake Pattern to Use</th>
+            <th>Example</th>
+            <th>Real Pattern to AVOID</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Company name</strong></td>
+            <td>"Test ___", "Sample ___", "Mock ___"</td>
+            <td>Test Corp Ltd</td>
+            <td>CB Bank, KBZ, Yoma, AYA, any real company</td>
+          </tr>
+          <tr>
+            <td><strong>Employee name</strong></td>
+            <td>Obvious fake names</td>
+            <td>John Test Doe, Ma Ma Sample</td>
+            <td>Any real person's name</td>
+          </tr>
+          <tr>
+            <td><strong>Phone / MSISDN</strong></td>
+            <td>Repeated digits or <code>0911...</code> <code>0922...</code></td>
+            <td><code>09111111111</code></td>
+            <td>Any real Myanmar phone number</td>
+          </tr>
+          <tr>
+            <td><strong>NRC number</strong></td>
+            <td>Do not use at all</td>
+            <td>(leave blank)</td>
+            <td>Any real NRC pattern</td>
+          </tr>
+          <tr>
+            <td><strong>Bank account</strong></td>
+            <td>Round fake numbers</td>
+            <td><code>12345678, 87654321</code></td>
+            <td>Any real account number</td>
+          </tr>
+          <tr>
+            <td><strong>Amount</strong></td>
+            <td>Round fake numbers</td>
+            <td>2,450,000 MMK</td>
+            <td>Amounts that match real payrolls</td>
+          </tr>
+          <tr>
+            <td><strong>Approver name</strong></td>
+            <td>"Test Approver One", "Fake HOD"</td>
+            <td>Test Approver One</td>
+            <td>Any real approver (Thet Hnin Wai, etc.)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ SECTION 9 ═══════════════════ -->
+<section class="chapter" id="s9">
+  <span class="chapter-number">09</span>
+  <div class="chapter-header">
+    <div class="section-eyebrow">Chapter Nine · Limitations</div>
+    <h3 class="chapter-title">What the System <em>Cannot Do Yet</em></h3>
+  </div>
+  <div class="chapter-body">
+    <p>Please know these limitations. If you hit any of them, it is <strong>not a bug</strong> — it is a known limit.</p>
+
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr><th>Limitation</th><th>Impact</th><th>Workaround</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>Password-protected files</strong></td><td>System cannot open them</td><td>Send the file without password protection</td></tr>
+          <tr><td><strong>Myanmar handwritten documents</strong></td><td>AI may not read handwriting correctly</td><td>Send typed/printed documents when possible</td></tr>
+          <tr><td><strong>Files larger than 10 MB</strong></td><td>System will reject the attachment</td><td>Reduce file size or split into smaller chunks</td></tr>
+          <tr><td><strong>Non-<code>@zeyalabs.ai</code> senders</strong></td><td>Email will be ignored</td><td>Always send from your <code>@zeyalabs.ai</code> account</td></tr>
+          <tr><td><strong>Multiple attachments per email</strong></td><td>Only the first is processed</td><td>Send one attachment per email</td></tr>
+          <tr><td><strong>Long Myanmar script text</strong></td><td>AI may translate inconsistently</td><td>Use English where possible for test data</td></tr>
+          <tr><td><strong>Real-time status updates</strong></td><td>Dashboard may take 30-60 seconds to refresh</td><td>Refresh the page manually if needed</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ SECTION 10 ═══════════════════ -->
+<section class="chapter" id="s10">
+  <span class="chapter-number">10</span>
+  <div class="chapter-header">
+    <div class="section-eyebrow">Chapter Ten · Support</div>
+    <h3 class="chapter-title">Getting <em>Help</em></h3>
+  </div>
+  <div class="chapter-body">
+
+    <h4 class="sub-head">First: try to solve it yourself</h4>
+    <ol style="counter-reset: self; list-style: none; margin: 16px 0;">
+      <li style="counter-increment: self; padding: 10px 0 10px 40px; position: relative; font-size: 15px; color: var(--ink-soft); line-height: 1.7; border-bottom: 1px dashed var(--rule);">
+        <span style="position: absolute; left: 0; top: 10px; font-family: 'Fraunces', serif; font-style: italic; font-size: 20px; color: var(--accent);">01</span>
+        Re-read the relevant section of this guide.
+      </li>
+      <li style="counter-increment: self; padding: 10px 0 10px 40px; position: relative; font-size: 15px; color: var(--ink-soft); line-height: 1.7; border-bottom: 1px dashed var(--rule);">
+        <span style="position: absolute; left: 0; top: 10px; font-family: 'Fraunces', serif; font-style: italic; font-size: 20px; color: var(--accent);">02</span>
+        Check that your email followed all the rules in <strong>Section 4</strong>.
+      </li>
+      <li style="counter-increment: self; padding: 10px 0 10px 40px; position: relative; font-size: 15px; color: var(--ink-soft); line-height: 1.7;">
+        <span style="position: absolute; left: 0; top: 10px; font-family: 'Fraunces', serif; font-style: italic; font-size: 20px; color: var(--accent);">03</span>
+        Verify your data is fake per <strong>Section 2</strong> and <strong>Section 8</strong>.
+      </li>
+    </ol>
+
+    <h4 class="sub-head">Next: contact DK</h4>
+    <p>If the problem persists, contact:</p>
+
+    <div class="contact-card">
+      <div class="contact-eyebrow">Primary Support · Trustify Technology</div>
+      <div class="contact-name">DK <em>Nguyen</em></div>
+      <div class="contact-role">Data Engineer — Trustify Technology</div>
+      <div class="contact-meta">
+        <div class="mi">
+          <span class="lbl">Contact method</span>
+          <span class="val">Microsoft Teams</span>
+        </div>
+        <div class="mi">
+          <span class="lbl">Time zone</span>
+          <span class="val">Vietnam (GMT+7)</span>
+        </div>
+      </div>
+    </div>
+
+    <p>When you message, include:</p>
+    <ul class="include-list">
+      <li>The Ticket ID (example: <code>TKT-005</code>)</li>
+      <li>A screenshot of what you see</li>
+      <li>What you were trying to do</li>
+      <li>When it happened</li>
+    </ul>
+
+    <h4 class="sub-head">Response time expectations</h4>
+
+    <div class="response-times">
+      <div class="rt-card">
+        <div class="when">Mon–Fri working hours<br>Vietnam GMT+7</div>
+        <div class="how">within 1–2 hours</div>
+      </div>
+      <div class="rt-card">
+        <div class="when">Evenings / Weekends</div>
+        <div class="how">best effort, may be next business day</div>
+      </div>
+      <div class="rt-card urgent">
+        <div class="when">Urgent outage</div>
+        <div class="how">ping DK directly on Teams with "URGENT" in the message</div>
+      </div>
+    </div>
+
+    <div class="donts-final">
+      <h5>Do NOT</h5>
+      <ul>
+        <li>Do not send real customer data to "test" if the system is slow.</li>
+        <li>Do not share the dashboard URL or system details outside the authorized team.</li>
+        <li>Do not attempt workarounds using real data "just once" — this violates the data safety rule.</li>
+      </ul>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════════ SECTION 11 ═══════════════════ -->
+<section class="chapter" id="s11">
+  <span class="chapter-number">11</span>
+  <div class="chapter-header">
+    <div class="section-eyebrow">Chapter Eleven · Agreement</div>
+    <h3 class="chapter-title">Acknowledgment and <em>Sign-Off</em></h3>
+  </div>
+  <div class="chapter-body">
+
+    <div class="signoff-section">
+      <p>By signing below, you confirm that you have read and understood this handover guide, and that you agree to:</p>
+
+      <ol class="agreement-list">
+        <li>Use only fake/mock/fabricated data when testing this system.</li>
+        <li>Never submit real customer names, phone numbers, NRCs, account numbers, or financial data.</li>
+        <li>Always send request emails from your <code>@zeyalabs.ai</code> account to <code>emoney@zeyalabs.ai</code>.</li>
+        <li>Take full responsibility for the data you submit.</li>
+        <li>Contact DK Nguyen for any questions before using the system.</li>
+        <li>Acknowledge that this system is in testing phase and not yet certified for enterprise banking use.</li>
+        <li>Acknowledge that Trustify Technology is not liable for any data exposure caused by misuse.</li>
+      </ol>
+
+      <div class="signature-block">
+        <div class="sig-group-title">Primary Recipients</div>
+        <div class="table-wrapper" style="border: none;">
+          <table>
+            <thead>
+              <tr><th>Name</th><th>Role</th><th>Organization</th><th>Signature</th><th>Date</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Win Win Naing</td><td>Operations</td><td>Wave Money</td><td><span class="sig-line"></span></td><td><span class="sig-line" style="width: 100px;"></span></td></tr>
+              <tr><td><span class="sig-line"></span></td><td>Finance</td><td>Wave Money</td><td><span class="sig-line"></span></td><td><span class="sig-line" style="width: 100px;"></span></td></tr>
+              <tr><td><span class="sig-line"></span></td><td>Finance</td><td>Wave Money</td><td><span class="sig-line"></span></td><td><span class="sig-line" style="width: 100px;"></span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="signature-block">
+        <div class="sig-group-title">Delivered By</div>
+        <div class="table-wrapper" style="border: none;">
+          <table>
+            <thead>
+              <tr><th>Name</th><th>Role</th><th>Organization</th><th>Signature</th><th>Date</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>DK Nguyen</td><td>Data Engineer</td><td>Trustify Technology</td><td><span class="sig-line"></span></td><td><span class="sig-line" style="width: 100px;"></span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════════ APPENDIX ═══════════════════ -->
+<section class="chapter" style="border-bottom: none;">
+  <div class="chapter-header">
+    <div class="section-eyebrow">Appendix</div>
+    <h3 class="chapter-title">Quick <em>Reference Card</em></h3>
+  </div>
+  <div class="chapter-body">
+
+    <div class="quick-ref">
+      <span class="qr-label">Keep at your desk</span>
+      <div class="qr-title">At a glance.</div>
+      <div class="qr-sub">One page. Everything you need. Print it.</div>
+
+      <div class="qr-grid">
+        <div class="qr-item">
+          <div class="key">Dashboard URL</div>
+          <div class="val">https://project-ii0tm.vercel.app</div>
+        </div>
+        <div class="qr-item">
+          <div class="key">Email target</div>
+          <div class="val">emoney@zeyalabs.ai</div>
+        </div>
+        <div class="qr-item">
+          <div class="key">Required sender domain</div>
+          <div class="val">@zeyalabs.ai</div>
+        </div>
+        <div class="qr-item">
+          <div class="key">Allowed file types</div>
+          <div class="val">PDF, JPG, JPEG, PNG</div>
+        </div>
+        <div class="qr-item">
+          <div class="key">Max file size</div>
+          <div class="val">10 MB</div>
+        </div>
+        <div class="qr-item">
+          <div class="key">Expected confirmation time</div>
+          <div class="val">~1 minute</div>
+        </div>
+        <div class="qr-item highlight">
+          <div class="key">Data rule</div>
+          <div class="val">Fake data only</div>
+        </div>
+        <div class="qr-item">
+          <div class="key">Help contact</div>
+          <div class="val">DK Nguyen — MS Teams</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════════ FOOTER ═══════════════════ -->
+<footer>
+  <div class="end-mark">End of Guide</div>
+  <p>This guide is version 1.0, dated April 20, 2026.<br>If you receive an updated version, please replace this document.</p>
+</footer>
+
+</div>
+
+</body>
+</html>
