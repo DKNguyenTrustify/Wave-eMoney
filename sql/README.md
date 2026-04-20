@@ -46,6 +46,14 @@ Feature-oriented, not chronological. For the durable queue architecture (see `de
 | `kan46_verify_v1.sql` | Post-deploy verification queries |
 | `kan46_verify_spooler_test.sql` | Burst test verification queries |
 
+## Maintenance scripts (reusable, project-general)
+
+Reusable scripts for database lifecycle operations. Not tied to any specific KAN ticket.
+
+| File | Purpose |
+|---|---|
+| `hard_reset_all_data.sql` | Clear ALL ticket/queue/log data for a fresh slate. Drops legacy `tickets` table. Preserves schemas, worker_config, triggers, pg_cron jobs, RLS policies. Use before client handover or at end-of-quarter. |
+
 ## Why the mixed naming?
 
 - Numbered files are from the pre-KAN-46 era when Binh and DK iterated schema together. Chronological order matters; file 10 depends on file 09.

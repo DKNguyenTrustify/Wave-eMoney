@@ -923,67 +923,9 @@ function resetDemo(){
   location.reload();
 }
 
-function seedDemoTickets(){
-  const seeds = [
-    {
-      id:'TKT-001', source_email_id:null, company:'Capital Taiyo', type:'SalaryToMA',
-      currency:'MMK', scenario:'NORMAL', created_at:'2026-04-01 14:22:00',
-      amount_requested:2450000, amount_on_bank_slip:2450000,
-      has_mismatch:false, employee_total:2450000,
-      required_approvals:['Sales HOD','Finance Manager'],
-      email_approvals:[
-        {name:'U Myo Htun',role:'Sales HOD',status:'Approved'},
-        {name:'Daw Su Su',role:'Finance Manager',status:'Approved'},
-      ],
-      approval_matrix_complete:true,
-      bank_slip_filename:'capital_taiyo_slip_apr.pdf', bank_slip_type:'application/pdf',
-      prechecks_done:true, prechecks_at:'2026-04-01 14:25:00',
-      employee_data:null, total_employees:22, invalid_msisdn_count:0, names_cleaned_count:3,
-      employee_file_name:'capital_taiyo_employees.xlsx',
-      reconciliation:[
-        {check:'Email vs Attachment',status:'pass',detail:'Both show 2,450,000 MMK \u2705'},
-        {check:'Employee Total vs Requested',status:'pass',detail:'Both show 2,450,000 MMK \u2705'},
-        {check:'Three-Way Match',status:'pass',detail:'All sources agree: 2,450,000 MMK \u2705'},
-      ],
-      finance_status:'APPROVED', finance_approved_by:'Thin Thin Aye',
-      finance_approved_at:'2026-04-01 15:10:00', finance_notes:'Funds verified. Approved.',
-      sent_to_checker:false,
-    },
-    {
-      id:'TKT-002', source_email_id:null, company:'GGI Nippon Life', type:'SalaryToOTC',
-      currency:'MMK', scenario:'NORMAL', created_at:'2026-04-02 08:45:00',
-      amount_requested:5100000, amount_on_bank_slip:5100000,
-      has_mismatch:false, employee_total:5100000,
-      required_approvals:['Sales HOD','Finance Manager'],
-      email_approvals:[{name:'Ko Thiha',role:'Sales Manager',status:'Approved'}],
-      approval_matrix_complete:false,
-      bank_slip_filename:'ggi_slip_apr.png', bank_slip_type:'image/png',
-      prechecks_done:true, prechecks_at:'2026-04-02 08:50:00',
-      employee_data:null, total_employees:41, invalid_msisdn_count:2, names_cleaned_count:7,
-      employee_file_name:'ggi_employees.xlsx',
-      reconciliation:[
-        {check:'Email vs Attachment',status:'pass',detail:'Both show 5,100,000 MMK \u2705'},
-        {check:'Employee Total vs Requested',status:'pass',detail:'Both show 5,100,000 MMK \u2705'},
-      ],
-      finance_status:'PENDING', finance_approved_by:null,
-      finance_approved_at:null, finance_notes:null,
-      sent_to_checker:false,
-    },
-  ];
-  seeds.forEach(t => {
-    t.status = deriveStatus(t);
-    t.risk_level = computeRisk(t);
-    state.tickets[t.id] = t;
-  });
-  state._syncAllTickets = true;
-  saveState();
-  logActivity('Demo tickets seeded (Capital Taiyo + GGI Nippon)');
-}
-
 async function initState(){
   await loadState();
   if(!state.parsedEmails) state.parsedEmails = new Set();
-  if(Object.keys(state.tickets).length === 0) seedDemoTickets();
   document.getElementById('role-select').value = state.currentRole;
   switchRole(state.currentRole);
 }
