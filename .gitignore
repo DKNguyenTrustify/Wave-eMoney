@@ -18,14 +18,15 @@ desktop.ini
 node_modules/
 
 # Sensitive / real bank documents — NEVER push to public repo
-research/real_samples/PyiGyiKhin.pdf
-research/real_samples/Yoma_Bank_BBP_User_Manual_v2.pdf
-research/real_samples/IFC_Myanmar_Mobile_Money_Report.pdf
-research/real_samples/myanmar_nrc_data.json
-research/real_samples/yoma_bank_docs/
-research/real_samples/wave_money_screenshots/
-research/real_samples/nrc_datasets/
-research/real_samples/culture_survey_bilingual/
+# (Apr 20 2026: moved from research/real_samples/ to samples/reference/)
+samples/reference/PyiGyiKhin.pdf
+samples/reference/Yoma_Bank_BBP_User_Manual_v2.pdf
+samples/reference/IFC_Myanmar_Mobile_Money_Report.pdf
+samples/reference/myanmar_nrc_data.json
+samples/reference/yoma_bank_docs/
+samples/reference/wave_money_screenshots/
+samples/reference/nrc_datasets/
+samples/reference/culture_survey_bilingual/
 
 # Meeting transcripts — internal, contains real names & discussions
 Yoma Bank - Daily Standup*.vtt
