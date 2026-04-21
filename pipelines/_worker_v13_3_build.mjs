@@ -74,11 +74,30 @@ if (!prepareNode) throw new Error('prepare-for-ai-v3 node not found in source JS
 prepareNode.parameters.jsCode = prepareForAiJs;
 
 // =====================================================================
-// 3. Gemini 3 Extract — parallel Promise.allSettled (TODO: Layer C Step 4)
+// 3. Gemini 3 Extract — parallel Promise.allSettled (Layer C Step 4)
 // =====================================================================
-// Will replace jsCode with Promise.allSettled + per-call 25s race in a
-// follow-up commit. Probe (Apr 21) proved n8n Code node has a HARD 60s
-// cap shared across items, so parallel is the only design that fits.
+// Replace jsCode with v13.3 parallel version. Reads attachments[] from
+// Prepare for AI v3 output. Fires N Gemini calls in parallel via
+// Promise.allSettled; each call wrapped in Promise.race with 25s timeout
+// so no single slow call can exceed the 60s n8n task-runner cap.
+//
+// Rate limit: staticData.geminiCalls atomically incremented by N BEFORE
+// parallel fires (prevents race on counter). Circuit breaker threshold
+// unchanged from v13.2 (5 errors/day).
+//
+// Output shape:
+//   - attachment_extractions[] — one entry per valid attachment with
+//     _gemini_result + _gemini_status + _gemini_usage + filename + index
+//   - Legacy top-level fields (_gemini_result, _gemini_status, etc.) still
+//     emitted from extraction[0] so v13.2 Parse & Validate (Step 5 target)
+//     continues to function unchanged until Step 5 aggregates.
+const geminiExtractJs = readFileSync(
+  'g:/My Drive/Tech Jobs/Trustify/03_build/wave-emi-dashboard/pipelines/_worker_v13_3_gemini_extract.js',
+  'utf8'
+);
+const geminiNode = worker.nodes.find(n => n.id === 'gemini3-extract');
+if (!geminiNode) throw new Error('gemini3-extract node not found in source JSON');
+geminiNode.parameters.jsCode = geminiExtractJs;
 
 // =====================================================================
 // 4. AI Parse & Validate v3 — array aggregation (TODO: Layer C Step 5)
@@ -111,5 +130,5 @@ console.log('  Nodes:', worker.nodes.length);
 console.log('  Connections:', Object.keys(worker.connections).length);
 console.log('  Webhook path:', webhookNode.parameters.path);
 console.log('');
-console.log('Layer C progress: Steps 1-3 complete (scaffolding + Prepare for AI v3 multi-attachment).');
-console.log('Remaining: Step 4 (Gemini parallel) → Step 5 (Parse aggregation) → Step 6 (gate order) → Step 7 (reject templates).');
+console.log('Layer C progress: Steps 1-4 complete (scaffolding + Prepare for AI v3 + parallel Gemini).');
+console.log('Remaining: Step 5 (Parse aggregation) → Step 6 (gate order) → Step 7 (reject templates).');
