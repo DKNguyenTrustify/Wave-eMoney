@@ -11,7 +11,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        520,
+        640,
         400
       ]
     },
@@ -42,7 +42,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        660,
+        840,
         400
       ]
     },
@@ -56,7 +56,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        780,
+        1040,
         400
       ],
       "retryOnFail": true,
@@ -72,7 +72,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1100,
+        1240,
         400
       ]
     },
@@ -95,8 +95,8 @@
       "maxTries": 2,
       "waitBetweenTries": 2000,
       "position": [
-        1620,
-        520
+        1440,
+        300
       ],
       "credentials": {
         "microsoftOutlookOAuth2Api": {
@@ -132,8 +132,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        860,
-        340
+        1040,
+        200
       ]
     },
     {
@@ -152,8 +152,8 @@
       "type": "n8n-nodes-base.microsoftOutlook",
       "typeVersion": 2,
       "position": [
-        1060,
-        260
+        1240,
+        200
       ],
       "retryOnFail": true,
       "maxTries": 2,
@@ -174,7 +174,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        620,
+        440,
         400
       ]
     },
@@ -188,7 +188,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2300,
+        1640,
         300
       ]
     },
@@ -202,8 +202,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2300,
-        500
+        1440,
+        200
       ]
     },
     {
@@ -218,7 +218,7 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
-        400,
+        240,
         400
       ],
       "webhookId": "emi-worker-v13-3"
@@ -234,8 +234,8 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        -180,
-        180
+        -200,
+        100
       ]
     },
     {
@@ -248,7 +248,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2560,
+        2100,
         400
       ]
     },
@@ -281,8 +281,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        1720,
-        400
+        1440,
+        600
       ]
     },
     {
@@ -295,8 +295,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1940,
-        280
+        1840,
+        700
       ]
     },
     {
@@ -328,8 +328,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        1900,
-        400
+        1640,
+        600
       ]
     },
     {
@@ -348,8 +348,8 @@
       "type": "n8n-nodes-base.microsoftOutlook",
       "typeVersion": 2,
       "position": [
-        2100,
-        300
+        1840,
+        500
       ],
       "credentials": {
         "microsoftOutlookOAuth2Api": {

@@ -169,6 +169,42 @@ rejectNode.parameters.bodyContent = rejectNode.parameters.bodyContent.replace(UN
 // is encoded in Prepare for AI v3's reason-selection, not the topology.
 
 // =====================================================================
+// 6a. Canvas tidy-up — clean grid layout for easier visual reading
+// =====================================================================
+// v13.2 positions were organically placed and overlap when the workflow
+// has all 17 nodes + connections drawn. Re-layout onto a clean grid:
+//   Y=400: main flow (Webhook → Claim → Prepare → Skip Filter)
+//   Y=200: rejection branch (up)
+//   Y=300: notification (success) branch
+//   Y=600: diagnostic branch (down)
+//   All branches merge at Chain Next Job (x=2200, y=400).
+// Each node is 200px apart horizontally for comfortable label spacing.
+const POSITIONS = {
+  'webhook-trigger-worker':       [ 240, 400],
+  'claim-reconstitute':           [ 440, 400],
+  'prepare-for-ai-v3':            [ 640, 400],
+  'skip-filter':                  [ 840, 400],
+  'is-rejection-email':           [1040, 200],
+  'send-rejection-email':         [1240, 200],
+  'mark-complete-reject':         [1440, 200],
+  'gemini3-extract':              [1040, 400],
+  'parse-validate-v3':            [1240, 400],
+  'send-notification':            [1440, 300],
+  'mark-complete-notify':         [1640, 300],
+  'is-diagnostic':                [1440, 600],
+  'should-notify-sender':         [1640, 600],
+  'send-failure-notification':    [1840, 500],
+  'mark-failed-diagnostic':       [1840, 700],
+  'chain-next-job':               [2100, 400],
+  'sticky-note-worker-v13-1':     [-200, 100],
+};
+for (const node of worker.nodes) {
+  if (POSITIONS[node.id]) {
+    node.position = POSITIONS[node.id];
+  }
+}
+
+// =====================================================================
 // 7. Update sticky note for v13.3 architecture (TODO)
 // =====================================================================
 // Will update sticky-note content in a follow-up commit once all node
