@@ -95,19 +95,38 @@ You don't configure anything for this beyond the OIDC role. We'll send the exact
 
 ---
 
-## 6. Environment variables
+## 6. Environment variables + credentials
 
-The app expects the following at runtime. Names are what we use in Vercel today; rename freely on your side. Secrets go in Secrets Manager; non-secret config as Lambda env vars.
+Split between Lambda and n8n. Shared secrets (DB connection + webhook HMAC) live once in Secrets Manager; both sides fetch the same entry.
+
+### Lambda (set on the Lambda function config)
 
 | Var | Purpose | Source |
 |---|---|---|
 | `DB_URL` | Postgres connection string | Secrets Manager |
-| `DB_SERVICE_ROLE_KEY` | DB auth if using a per-service user | Secrets Manager |
-| `WEBHOOK_SECRET` | HMAC shared with n8n | Secrets Manager — regenerate on your side, share to n8n + API |
-| `BEDROCK_REGION` | Bedrock invoke region | Env var (matches your chosen region) |
-| `BEDROCK_MODEL_ID` | Claude Opus 4.7 model ID | Env var — `anthropic.claude-opus-4-7-v1` or your regional equivalent |
-| `S3_BUCKET_NAME` | Attachments bucket | Env var |
+| `DB_SERVICE_ROLE_KEY` | DB auth (per-service user) | Secrets Manager |
+| `WEBHOOK_SECRET` | Verifies incoming n8n webhooks (HMAC) | Secrets Manager |
+| `S3_BUCKET_NAME` | Attachments bucket name | Env var |
 | `S3_REGION` | Bucket region | Env var |
+
+### n8n (set on the n8n host + configured via n8n credential UI)
+
+| Config | Purpose | Source |
+|---|---|---|
+| `DB_URL` + `DB_SERVICE_ROLE_KEY` | Worker queries `email_queue` directly | Env var or n8n Postgres credential |
+| `WEBHOOK_SECRET` | Signs outbound n8n → Lambda webhooks (HMAC) | n8n HTTP Request credential |
+| `BEDROCK_REGION` + `BEDROCK_MODEL_ID` | LLM extraction target (`anthropic.claude-opus-4-7-v1` or regional equivalent) | Env var |
+| `CREDENTIALS_OVERWRITE_DATA` | Microsoft OAuth app override (see Appendix A) | Env var |
+| Microsoft Outlook credential | Mailbox polling + Send Email | n8n credential UI |
+| AWS Bedrock credential | Invoke model | n8n credential UI (cleanest: instance IAM role on EC2) |
+
+### Shared secrets
+
+`DB_URL`, `DB_SERVICE_ROLE_KEY`, and `WEBHOOK_SECRET` are shared values — both Lambda and n8n read the same Secrets Manager entries. Regenerate on your side after initial handoff.
+
+### Why Bedrock is n8n-only
+
+Lambda handles webhook intake + dashboard CRUD; it doesn't call the LLM. All extraction happens inside the n8n worker pipeline, so Bedrock config lives with n8n, not Lambda.
 
 ---
 
