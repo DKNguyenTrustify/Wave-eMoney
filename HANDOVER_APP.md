@@ -63,6 +63,30 @@ One IAM user (or cross-account role) for the Trustify team with these permission
 
 You never need to touch the app stack. If something breaks, we'll debug using the logs + access you've given us, fix the code, push, redeploy. You get observability (CloudWatch logs) but the operational work is ours.
 
+### 3.1 API contract (for API Gateway route config)
+
+Two routes, both Lambda-backed:
+
+| Route | Methods | Auth | Handler |
+|---|---|---|---|
+| `/api/webhook` | POST (+ OPTIONS for CORS preflight) | `X-Webhook-Secret` header (HMAC shared with n8n) | [api/webhook.js](api/webhook.js) |
+| `/api/extract-employees` | POST (+ OPTIONS for CORS preflight) | **None currently** — see security note below | [api/extract-employees.js](api/extract-employees.js) |
+
+**Behavior**:
+- Non-POST → 405 `{"error":"POST only"}`
+- Oversized image on `/api/extract-employees` (>~3 MB base64) → 413
+- Webhook missing/invalid `X-Webhook-Secret` → 401
+- Webhook missing required fields (`company`) → 400
+- CORS is whitelist-based (see `ALLOWED_ORIGINS` in webhook.js) — update when Wave's dashboard origin is known
+
+**Request bodies**:
+- `/api/webhook` JSON: `{ company, message_id, from_address, subject, extracted_fields, attachments[], ... }` — full payload defined by the n8n worker's final node output. Idempotency via `message_id`.
+- `/api/extract-employees` JSON: `{ image_base64 }` — returns `{ employees[], confidence }`.
+
+**Versioning**: no `/v1/` prefix today (Vercel filesystem routing). Port 1:1 first; add versioning only if Wave has a convention requirement.
+
+**Security gap to close on port**: `/api/extract-employees` has no auth header today. Add an API Gateway authorizer (API key, IAM, or same `X-Webhook-Secret` pattern as the other route) so attackers who discover the URL can't spam it and burn Groq/Bedrock quota.
+
 ---
 
 ## 4. Microsoft 365 / Outlook — three questions
