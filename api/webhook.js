@@ -275,6 +275,33 @@ export default async function handler(req, res) {
       // on this specific attachment. A bank slip in a Pattern Z email may not have
       // vision data even if the payroll PDF does.
       if (att.vision_parsed) {
+        // KAN-47 Layer D: capture per-attachment extracted fields as JSONB.
+        // Layer C Parse v3 produces these on each attachments[i]. Pre-KAN-47
+        // webhook.js dropped them on the floor; Layer D's multi-column SBS
+        // table needs them side-by-side. Fields with dedicated columns on
+        // ticket_vision_results (document_type, document_signers,
+        // amount_on_document) stay in their columns — not duplicated here.
+        // Requires migration 16 (extracted_fields JSONB DEFAULT '{}').
+        const extractedFields = att.extracted_fields || {
+          company:                  att.company                  || '',
+          amount:                   att.amount                   || 0,
+          currency:                 att.currency                 || '',
+          payment_date:             att.payment_date             || '',
+          payroll_period:           att.payroll_period           || '',
+          initiator_name:           att.initiator_name           || '',
+          purpose:                  att.purpose                  || '',
+          cost_center:              att.cost_center              || '',
+          corporate_wallet:         att.corporate_wallet         || '',
+          doc_company_name:         att.doc_company_name         || '',
+          doc_payment_date:         att.doc_payment_date         || '',
+          doc_initiator_name:       att.doc_initiator_name       || '',
+          doc_purpose:              att.doc_purpose              || '',
+          doc_cost_center:          att.doc_cost_center          || '',
+          employees:                Array.isArray(att.employees) ? att.employees : [],
+          employee_count:           att.employee_count           || 0,
+          total_amount_on_document: att.total_amount_on_document || 0,
+        };
+
         try {
           await supabase.from('ticket_vision_results').insert({
             ticket_id: ticketId,
@@ -288,6 +315,7 @@ export default async function handler(req, res) {
             depositor_name: att.depositor_name || '',
             remark: att.remark || '',
             transaction_id: att.transaction_id || '',
+            extracted_fields: extractedFields,
           });
         } catch (e) {
           console.error(`ticket_vision_results insert error (attachment ${i}):`, e.message);
