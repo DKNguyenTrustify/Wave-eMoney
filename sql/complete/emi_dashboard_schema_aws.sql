@@ -1,18 +1,18 @@
 -- ============================================================================
--- EMI Dashboard — Complete Schema (AWS-Portable, All-in-One)
+-- EMI Dashboard - Complete Schema (AWS-Portable, All-in-One)
 -- ============================================================================
 -- Purpose:     Single-file deployment DDL for a fresh Postgres instance.
 --              Consolidates migrations 01-16 + inline KAN-35/36/47 additions.
 -- Target:      AWS RDS Postgres 13+ (also works on any Postgres 13+ install)
 -- Author:      DK Nguyen + Claude (Trustify Technology) for Huy Nguyen Duc
 -- Date:        2026-04-22
--- Version:     v1.1 — synced through migration 16 (per-attachment extracted_fields JSONB)
+-- Version:     v1.1 - synced through migration 16 (per-attachment extracted_fields JSONB)
 -- Changelog:
---   v1.0 (2026-04-21) — initial AWS migration candidate (migrations 01-15)
---   v1.1 (2026-04-22) — inline migration 16: extracted_fields JSONB on
+--   v1.0 (2026-04-21) - initial AWS migration candidate (migrations 01-15)
+--   v1.1 (2026-04-22) - inline migration 16: extracted_fields JSONB on
 --                       ticket_vision_results + GIN index (KAN-47 Layer D)
 --
--- ── What this file INCLUDES ─────────────────────────────────────────────────
+-- -- What this file INCLUDES -------------------------------------------------
 --   1. ENUMs (ticket_status, ticket_scenario, ticket_risk_level, ticket_type)
 --   2. Core tables (tickets_v2, ticket_emails, ticket_attachments,
 --      ticket_vision_results, ticket_employee_extractions, activity_log)
@@ -20,35 +20,35 @@
 --   4. Auto-update triggers (updated_at, ticket_number generator)
 --   5. Indexes for dashboard query performance
 --   6. tickets_flat read-side view (dashboard's primary query surface)
---   7. Smoke-test verification block at bottom (commented — run after deploy)
+--   7. Smoke-test verification block at bottom (commented - run after deploy)
 --
--- ── What this file DOES NOT INCLUDE (intentional, separate concerns) ────────
---   ✗ pg_net / pg_cron mechanisms (Supabase-only, not available on AWS RDS)
---   ✗ email_queue table + triggers (coupled to pg_net; replace with EventBridge
---     or Lambda on AWS — see MIGRATION-NOTES section at bottom of this file)
---   ✗ Supabase RLS policies using auth.uid() (not portable to AWS; replace
+-- -- What this file DOES NOT INCLUDE (intentional, separate concerns) --------
+--   X pg_net / pg_cron mechanisms (Supabase-only, not available on AWS RDS)
+--   X email_queue table + triggers (coupled to pg_net; replace with EventBridge
+--     or Lambda on AWS - see MIGRATION-NOTES section at bottom of this file)
+--   X Supabase RLS policies using auth.uid() (not portable to AWS; replace
 --     with IAM / Cognito / app-level auth later)
---   ✗ Supabase Storage bucket policies (AWS deployment uses S3 instead;
+--   X Supabase Storage bucket policies (AWS deployment uses S3 instead;
 --     storage_url column stores the S3 key or path, schema unchanged)
---   ✗ Seed data (this is pure DDL — insert test rows via the smoke-test block)
+--   X Seed data (this is pure DDL - insert test rows via the smoke-test block)
 --
--- ── How to deploy on AWS RDS ────────────────────────────────────────────────
+-- -- How to deploy on AWS RDS ------------------------------------------------
 --   1. Create a fresh RDS Postgres instance (engine 13+, any size)
 --   2. Connect with a user that has CREATE privileges on the target database
 --   3. Run this entire file in one transaction (it auto-wraps in BEGIN/COMMIT)
 --   4. Uncomment the VERIFICATION block at the bottom and run to smoke-test
 --
--- ── Idempotency ─────────────────────────────────────────────────────────────
---   This script is NOT idempotent — it fails if objects already exist.
+-- -- Idempotency -------------------------------------------------------------
+--   This script is NOT idempotent - it fails if objects already exist.
 --   For re-runs on the same DB, drop the schema first or use a fresh DB.
 --   Intentional: catches accidental partial deploys that would leave orphans.
 -- ============================================================================
 
 BEGIN;
 
--- ════════════════════════════════════════════════════════════════════════════
--- SECTION 1 — ENUMs
--- ════════════════════════════════════════════════════════════════════════════
+-- ============================================================================
+-- SECTION 1 - ENUMs
+-- ============================================================================
 
 CREATE TYPE ticket_status AS ENUM (
   'AWAITING_EMPLOYEE_LIST', 'ASKED_CLIENT', 'PENDING_FINANCE',
@@ -66,13 +66,13 @@ CREATE TYPE ticket_risk_level AS ENUM ('LOW', 'MEDIUM', 'HIGH');
 CREATE TYPE ticket_type AS ENUM ('SalaryToMA', 'SalaryToOTC');
 
 
--- ════════════════════════════════════════════════════════════════════════════
--- SECTION 2 — Core ticket table (tickets_v2)
--- ────────────────────────────────────────────────────────────────────────────
+-- ============================================================================
+-- SECTION 2 - Core ticket table (tickets_v2)
+-- ----------------------------------------------------------------------------
 -- Merges Binh's original design + all KAN-35 / KAN-36 / KAN-47 additions into
 -- ONE CREATE TABLE (no later ALTER). Column order matches production Supabase.
 -- UUID default uses gen_random_uuid() (Postgres 13+ built-in, no extension).
--- ════════════════════════════════════════════════════════════════════════════
+-- ============================================================================
 
 CREATE TABLE tickets_v2 (
   id                       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -84,24 +84,24 @@ CREATE TABLE tickets_v2 (
   status                   ticket_status NOT NULL DEFAULT 'AWAITING_EMPLOYEE_LIST',
   risk_level               ticket_risk_level NOT NULL DEFAULT 'LOW',
 
-  -- ── Amounts (NUMERIC for financial precision) ──────────────────────────
+  -- -- Amounts (NUMERIC for financial precision) --------------------------
   amount_requested         NUMERIC(18,2) NOT NULL DEFAULT 0,
   amount_on_bank_slip      NUMERIC(18,2) NOT NULL DEFAULT 0,
   amount_on_document       NUMERIC(18,2) NOT NULL DEFAULT 0,
   has_mismatch             BOOLEAN NOT NULL DEFAULT false,
 
-  -- ── Approval matrix ────────────────────────────────────────────────────
+  -- -- Approval matrix ----------------------------------------------------
   approval_matrix_complete BOOLEAN NOT NULL DEFAULT false,
   required_approvals       JSONB DEFAULT '[]'::jsonb,   -- [{role, name}]
   email_approvals          JSONB DEFAULT '[]'::jsonb,   -- [{role, name}]
 
-  -- ── Finance workflow ───────────────────────────────────────────────────
+  -- -- Finance workflow ---------------------------------------------------
   finance_status           VARCHAR(20) NOT NULL DEFAULT 'PENDING',  -- PENDING/APPROVED/REJECTED
   finance_approved_by      TEXT,
   finance_approved_at      TIMESTAMPTZ,
   finance_notes            TEXT,
 
-  -- ── Employee processing ────────────────────────────────────────────────
+  -- -- Employee processing ------------------------------------------------
   prechecks_done           BOOLEAN NOT NULL DEFAULT false,
   prechecks_at             TIMESTAMPTZ,
   employee_data            JSONB DEFAULT '[]'::jsonb,    -- validated employee rows
@@ -112,14 +112,14 @@ CREATE TABLE tickets_v2 (
   employee_file_name       TEXT,
   reconciliation           JSONB,                        -- reconciliation check results
 
-  -- ── Bank slip metadata ─────────────────────────────────────────────────
+  -- -- Bank slip metadata -------------------------------------------------
   bank_slip_filename       TEXT,
   bank_slip_type           VARCHAR(50),
   remark                   TEXT DEFAULT '',
   transaction_id           TEXT DEFAULT '',
   depositor_name           TEXT DEFAULT '',
 
-  -- ── E-Money workflow state (drives dashboard deriveStatus() logic) ─────
+  -- -- E-Money workflow state (drives dashboard deriveStatus() logic) -----
   sent_to_checker          BOOLEAN NOT NULL DEFAULT false,
   checker_name             TEXT,
   checker_request          JSONB,     -- {corpWallet, dmmWallet, fee, batch, refNo}
@@ -130,35 +130,35 @@ CREATE TABLE tickets_v2 (
   monitor_results          JSONB,     -- {total, success, failed, paidAmount, failedAmount}
   closed                   BOOLEAN NOT NULL DEFAULT false,
 
-  -- ── Source tracking ────────────────────────────────────────────────────
+  -- -- Source tracking ----------------------------------------------------
   n8n_source               BOOLEAN NOT NULL DEFAULT false,
 
-  -- ── Timestamps ─────────────────────────────────────────────────────────
+  -- -- Timestamps ---------------------------------------------------------
   created_at               TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at               TIMESTAMPTZ NOT NULL DEFAULT now(),
 
-  -- ── KAN-35 / KAN-36 email-side extraction fields (inlined from migration 13) ─
+  -- -- KAN-35 / KAN-36 email-side extraction fields (inlined from migration 13) -
   payment_date             TEXT DEFAULT '',    -- client's pay day (e.g., "2026-04-20")
   payroll_period           TEXT DEFAULT '',    -- period salary covers (e.g., "March 2026")
   initiator_name           TEXT DEFAULT '',    -- who in client company is requesting
   purpose                  TEXT DEFAULT '',    -- why this disbursement
   cost_center              TEXT DEFAULT '',    -- accounting cost center (soft-gate)
 
-  -- ── KAN-36 document-side mirror fields (inlined from migration 13) ─────
+  -- -- KAN-36 document-side mirror fields (inlined from migration 13) -----
   doc_company_name         TEXT DEFAULT '',
   doc_payment_date         TEXT DEFAULT '',
   doc_initiator_name       TEXT DEFAULT '',
   doc_purpose              TEXT DEFAULT '',
   doc_cost_center          TEXT DEFAULT '',
 
-  -- ── KAN-36 v11.4 Source Info (inlined from migration 14) ──────────────
+  -- -- KAN-36 v11.4 Source Info (inlined from migration 14) --------------
   corporate_wallet         TEXT DEFAULT ''     -- e.g., "1200000289", "CHASE OPERATING - 123456789"
 );
 
 
--- ════════════════════════════════════════════════════════════════════════════
--- SECTION 3 — Child tables
--- ════════════════════════════════════════════════════════════════════════════
+-- ============================================================================
+-- SECTION 3 - Child tables
+-- ============================================================================
 
 CREATE TABLE ticket_emails (
   id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -229,12 +229,12 @@ CREATE TABLE ticket_employee_extractions (
 );
 
 
--- ────────────────────────────────────────────────────────────────────────────
--- activity_log — append-only audit trail
--- ────────────────────────────────────────────────────────────────────────────
+-- ----------------------------------------------------------------------------
+-- activity_log - append-only audit trail
+-- ----------------------------------------------------------------------------
 -- FK references tickets_v2.ticket_number (TKT-xxx) for human readability in logs,
 -- NOT the UUID id. This matches migration 11's FK fix.
--- ────────────────────────────────────────────────────────────────────────────
+-- ----------------------------------------------------------------------------
 
 CREATE TABLE activity_log (
   id         BIGSERIAL PRIMARY KEY,
@@ -245,9 +245,9 @@ CREATE TABLE activity_log (
 );
 
 
--- ════════════════════════════════════════════════════════════════════════════
--- SECTION 4 — Triggers
--- ════════════════════════════════════════════════════════════════════════════
+-- ============================================================================
+-- SECTION 4 - Triggers
+-- ============================================================================
 
 -- Auto-update updated_at on every UPDATE to tickets_v2
 CREATE OR REPLACE FUNCTION update_updated_at()
@@ -289,9 +289,9 @@ CREATE TRIGGER tickets_v2_auto_number
   EXECUTE FUNCTION generate_ticket_number();
 
 
--- ════════════════════════════════════════════════════════════════════════════
--- SECTION 5 — Indexes
--- ════════════════════════════════════════════════════════════════════════════
+-- ============================================================================
+-- SECTION 5 - Indexes
+-- ============================================================================
 
 CREATE INDEX idx_ticket_emails_ticket_id        ON ticket_emails(ticket_id);
 CREATE INDEX idx_ticket_attachments_ticket_id   ON ticket_attachments(ticket_id);
@@ -307,22 +307,22 @@ CREATE INDEX idx_activity_log_ticket_id         ON activity_log(ticket_id);
 CREATE INDEX idx_activity_log_created_at        ON activity_log(created_at DESC);
 
 
--- ════════════════════════════════════════════════════════════════════════════
--- SECTION 6 — Read-side VIEW (tickets_flat)
--- ────────────────────────────────────────────────────────────────────────────
+-- ============================================================================
+-- SECTION 6 - Read-side VIEW (tickets_flat)
+-- ----------------------------------------------------------------------------
 -- Dashboard's primary query hits this view. It flattens one row per ticket with
 -- the LATEST child rows (email, attachment, vision, employee extraction) joined
--- via LATERAL LIMIT 1. Column order matches production Supabase — dashboard JS
+-- via LATERAL LIMIT 1. Column order matches production Supabase - dashboard JS
 -- expects these column names and positions.
 --
 -- NOTE: For multi-attachment tickets (KAN-47), the view still shows only ONE
 -- attachment/vision row (the latest). Dashboard Layer D queries ticket_attachments
 -- directly for the full per-attachment detail.
--- ════════════════════════════════════════════════════════════════════════════
+-- ============================================================================
 
 CREATE VIEW tickets_flat AS
 SELECT
-  -- ── Core (from tickets_v2) ──────────────────────────────────────────
+  -- -- Core (from tickets_v2) ------------------------------------------
   t.id,
   t.ticket_number,
   t.company, t.type::text, t.currency,
@@ -343,23 +343,23 @@ SELECT
   t.n8n_source,
   t.created_at, t.updated_at,
 
-  -- ── Email (latest per ticket) ───────────────────────────────────────
+  -- -- Email (latest per ticket) ---------------------------------------
   e.source_email_id, e.from_email, e.to_email, e.cc_emails,
   e.reply_to, e.email_date, e.message_id, e.thread_id,
   e.original_subject, e.body_preview, e.email_body_full,
   e.has_attachments, e.attachment_names, e.attachment_count,
   e.n8n_parsed_at,
 
-  -- ── Attachment (latest per ticket) ──────────────────────────────────
+  -- -- Attachment (latest per ticket) ----------------------------------
   a.storage_url      AS attachment_url,
   a.mime_type        AS attachment_mime_type,
   a.file_name        AS attachment_file_name,
 
-  -- ── Vision (latest per ticket) ──────────────────────────────────────
+  -- -- Vision (latest per ticket) --------------------------------------
   v.vision_parsed, v.vision_confidence, v.vision_status,
   v.document_type, v.document_signers,
 
-  -- ── Employee extraction (latest per ticket) ────────────────────────
+  -- -- Employee extraction (latest per ticket) ------------------------
   x.extracted_employees,
   x.employee_count   AS extracted_employee_count,
   x.confidence       AS employee_extraction_confidence,
@@ -367,13 +367,13 @@ SELECT
   x.total_amount     AS employee_total_extracted,
   x.amount_mismatch  AS employee_amount_mismatch,
 
-  -- ── KAN-35 / KAN-36 fields (appended per production view order) ────
+  -- -- KAN-35 / KAN-36 fields (appended per production view order) ----
   t.payment_date, t.payroll_period,
   t.initiator_name, t.purpose, t.cost_center,
   t.doc_company_name, t.doc_payment_date,
   t.doc_initiator_name, t.doc_purpose, t.doc_cost_center,
 
-  -- ── KAN-36 v11.4 Source Info ───────────────────────────────────────
+  -- -- KAN-36 v11.4 Source Info ---------------------------------------
   t.corporate_wallet
 
 FROM tickets_v2 t
@@ -395,7 +395,7 @@ COMMIT;
 
 
 -- ============================================================================
--- SECTION 7 — VERIFICATION BLOCK (uncomment and run to smoke-test the deploy)
+-- SECTION 7 - VERIFICATION BLOCK (uncomment and run to smoke-test the deploy)
 -- ============================================================================
 -- After a successful deploy, uncomment the block below and run it. Expected
 -- results are noted in comments after each query.
@@ -403,13 +403,13 @@ COMMIT;
 
 -- -- Check 1: All ENUMs created
 -- SELECT typname FROM pg_type WHERE typcategory = 'E' ORDER BY typname;
--- -- Expected: 4 rows — ticket_risk_level, ticket_scenario, ticket_status, ticket_type
+-- -- Expected: 4 rows - ticket_risk_level, ticket_scenario, ticket_status, ticket_type
 
 -- -- Check 2: All tables created
 -- SELECT table_name FROM information_schema.tables
 -- WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
 -- ORDER BY table_name;
--- -- Expected: 6 rows — activity_log, ticket_attachments, ticket_emails,
+-- -- Expected: 6 rows - activity_log, ticket_attachments, ticket_emails,
 -- --           ticket_employee_extractions, ticket_vision_results, tickets_v2
 
 -- -- Check 3: tickets_flat view exists with expected column count
@@ -417,12 +417,12 @@ COMMIT;
 -- FROM information_schema.columns WHERE table_name = 'tickets_flat';
 -- -- Expected: ~80 columns
 
--- -- Check 4: INSERT a test ticket — ticket_number should auto-generate as TKT-001
+-- -- Check 4: INSERT a test ticket - ticket_number should auto-generate as TKT-001
 -- INSERT INTO tickets_v2 (company, amount_requested, currency)
 -- VALUES ('AWS Smoke Test Co', 1000000.00, 'MMK');
 -- SELECT ticket_number, company, amount_requested, status, created_at
 -- FROM tickets_v2 ORDER BY created_at DESC LIMIT 1;
--- -- Expected: 1 row — ticket_number = 'TKT-001', status = 'AWAITING_EMPLOYEE_LIST'
+-- -- Expected: 1 row - ticket_number = 'TKT-001', status = 'AWAITING_EMPLOYEE_LIST'
 
 -- -- Check 5: Activity log insert with FK to ticket_number
 -- INSERT INTO activity_log (ticket_id, action, message)
@@ -448,7 +448,7 @@ COMMIT;
 
 
 -- ============================================================================
--- MIGRATION-NOTES — what still needs to move to AWS beyond this schema
+-- MIGRATION-NOTES - what still needs to move to AWS beyond this schema
 -- ============================================================================
 -- This schema is the FIRST STEP of the AWS migration. The following components
 -- are NOT covered by this file and will be migrated in later phases:
@@ -471,12 +471,12 @@ COMMIT;
 --    Currently: Supabase Auth JWT + RLS policies (auth.uid() based)
 --    AWS target: Cognito (or IAM) + application-layer filters (or Postgres RLS
 --                using custom claims via SET LOCAL). RLS policies deliberately
---                omitted from this file — add them after auth provider is chosen.
+--                omitted from this file - add them after auth provider is chosen.
 --
 -- 4. DASHBOARD DEPLOYMENT
 --    Currently: Vercel (Pro + Hobby)
 --    AWS target: CloudFront + S3 static hosting, or Amplify Hosting. The
---                dashboard is single-file vanilla JS — any static host works.
+--                dashboard is single-file vanilla JS - any static host works.
 --
 -- 5. SECRETS
 --    Currently: Vercel environment variables + Supabase Vault
